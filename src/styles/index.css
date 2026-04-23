@@ -1,0 +1,32 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Custom interactive styles */
+@layer components {
+  /* Enhanced button hover and active states */
+  button:not(:disabled) {
+    @apply transition-all duration-200;
+  }
+  
+  button:not(:disabled):hover {
+    @apply scale-[1.02];
+  }
+  
+  button:not(:disabled):active {
+    @apply scale-[0.98];
+  }
+  
+  /* Card hover effects */
+  .cursor-pointer {
+    @apply transition-all duration-200;
+  }
+  
+  .cursor-pointer:hover {
+    @apply scale-[1.01];
+  }
+  
+  .cursor-pointer:active {
+    @apply scale-[0.99];
+  }
+}
