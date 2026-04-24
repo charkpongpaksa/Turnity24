@@ -162,7 +162,7 @@ export function FileUploadManager({
 
     const validation = validateUrl(urlInput);
     if (!validation.valid) {
-      setUrlError(validation.error);
+      setUrlError(validation.error ?? "Please enter a valid URL");
       return;
     }
 

@@ -4,16 +4,14 @@ import {
   BookOpen, 
   Bell, 
   Search, 
-  User,
   GraduationCap,
   Menu,
-  X,
-  MessageSquare
+  X
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,31 +20,64 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { mockNotifications } from "../data/mockData";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 import { useState } from "react";
 import { cn } from "../components/ui/utils";
+import { listNotifications } from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { toast } from "sonner";
 
 export function RootLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const unreadCount = mockNotifications.filter(n => !n.read).length;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const { session, logout, currentRole, canSwitchViews, switchActiveRole } = useAuth();
+  const { data: notificationsData } = useAsyncData(() => listNotifications(), []);
+  const notifications = notificationsData ?? [];
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
-  const isInstructorView = location.pathname.includes("/instructor");
+  const isInstructorView = currentRole === "instructor";
 
   const studentNavItems = [
     { icon: Home, label: "Dashboard", path: "/student", key: "student-dashboard" },
     { icon: BookOpen, label: "My Courses", path: "/courses", key: "student-courses" },
-    { icon: MessageSquare, label: "Messages", path: "/messages", key: "student-messages" },
   ];
 
   const instructorNavItems = [
     { icon: Home, label: "Dashboard", path: "/instructor", key: "instructor-dashboard" },
     { icon: BookOpen, label: "My Courses", path: "/instructor/courses", key: "instructor-courses" },
-    { icon: MessageSquare, label: "Messages", path: "/messages", key: "instructor-messages" },
   ];
 
   const navItems = isInstructorView ? instructorNavItems : studentNavItems;
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      setSidebarOpen(false);
+      navigate("/login", { replace: true });
+      toast.success("Logged out successfully");
+    } catch {
+      toast.error("Logout failed. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,13 +93,17 @@ export function RootLayout() {
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex items-center gap-2"
+              onClick={() => navigate(isInstructorView ? "/instructor" : "/student")}
+            >
               <GraduationCap className="h-6 w-6 text-blue-600" />
-              <div>
+              <div className="text-left">
                 <h1 className="font-bold text-lg text-gray-900">24/7</h1>
                 <p className="text-xs text-gray-500 -mt-1">Turnityforservice</p>
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="hidden md:flex flex-1 max-w-md mx-8">
@@ -82,16 +117,30 @@ export function RootLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Role Switcher */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(isInstructorView ? "/student" : "/instructor")}
-              className="hidden md:flex"
-            >
-              {isInstructorView ? "Student View" : "Instructor View"}
-            </Button>
-
+            {canSwitchViews ? (
+              <div className="hidden md:flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
+                <Button
+                  variant={currentRole === "instructor" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    switchActiveRole("instructor");
+                    navigate("/instructor");
+                  }}
+                >
+                  Instructor View
+                </Button>
+                <Button
+                  variant={currentRole === "student" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    switchActiveRole("student");
+                    navigate("/student");
+                  }}
+                >
+                  Student View
+                </Button>
+              </div>
+            ) : null}
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -110,7 +159,7 @@ export function RootLayout() {
                 <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <div className="max-h-96 overflow-y-auto">
-                  {mockNotifications.slice(0, 5).map((notification) => (
+                  {notifications.slice(0, 5).map((notification) => (
                     <DropdownMenuItem
                       key={notification.id}
                       className={cn(
@@ -133,7 +182,12 @@ export function RootLayout() {
                   ))}
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="justify-center">
+                <DropdownMenuItem
+                  className="justify-center"
+                  onClick={() =>
+                    navigate(isInstructorView ? "/instructor/notifications" : "/notifications")
+                  }
+                >
                   View all notifications
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -144,19 +198,32 @@ export function RootLayout() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 px-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarFallback>
+                      {session?.user.nameEn
+                        .split(" ")
+                        .filter(Boolean)
+                        .map((name) => name[0])
+                        .join("")
+                        .slice(0, 2) ?? "TU"}
+                    </AvatarFallback>
                   </Avatar>
-                  <span className="hidden md:inline text-sm font-medium">John Doe</span>
+                  <span className="hidden md:inline text-sm font-medium">
+                    {session?.user.nameEn ?? "TU User"}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem>{session?.user.email}</DropdownMenuItem>
+                <DropdownMenuItem>{session?.user.role}</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isLoggingOut}
+                  onClick={() => setLogoutDialogOpen(true)}
+                >
+                  {isLoggingOut ? "Logging out..." : "Logout"}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -193,13 +260,14 @@ export function RootLayout() {
           </nav>
 
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-900">Need help?</p>
-              <p className="text-xs text-blue-700 mt-1">Contact support anytime</p>
-              <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
-                Get Help
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={isLoggingOut}
+              onClick={() => setLogoutDialogOpen(true)}
+            >
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </Button>
           </div>
         </aside>
 
@@ -216,6 +284,30 @@ export function RootLayout() {
           <Outlet />
         </main>
       </div>
+
+      <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out of Turnity? You will need to sign in again with your TU account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoggingOut}
+              onClick={async (event) => {
+                event.preventDefault();
+                await handleLogout();
+                setLogoutDialogOpen(false);
+              }}
+            >
+              {isLoggingOut ? "Logging out..." : "Yes, log out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

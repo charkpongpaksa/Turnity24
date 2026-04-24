@@ -202,17 +202,17 @@ export const mockNotifications = [
     timestamp: "2026-03-23T16:30:00",
     urgent: false,
     read: true,
-    link: "/course/4/assignment/6",
+    link: "/course/4/assignment/5",
   },
   {
     id: "5",
-    type: "message",
-    title: "New Message",
-    message: "Dr. Sarah Johnson replied to your question about the midterm",
+    type: "discussion",
+    title: "New Discussion Activity",
+    message: "Dr. Sarah Johnson replied in the class discussion about the midterm",
     timestamp: "2026-03-23T11:20:00",
     urgent: false,
     read: true,
-    link: "/chat",
+    link: "/course/1",
   },
 ];
 
@@ -300,59 +300,54 @@ export const mockSubmissions = [
   },
 ];
 
-export const mockMessages = [
-  {
-    id: "1",
-    sender: "student",
-    senderName: "You",
-    content: "Hi Dr. Johnson, I have a question about the midterm exam. Will it cover the material from the last two lectures?",
-    timestamp: "2026-03-23T10:30:00",
-  },
-  {
-    id: "2",
-    sender: "instructor",
-    senderName: "Dr. Sarah Johnson",
-    content: "Yes, the midterm will cover all material up to and including last week's lectures on React hooks and state management.",
-    timestamp: "2026-03-23T11:20:00",
-  },
-  {
-    id: "3",
-    sender: "student",
-    senderName: "You",
-    content: "Thank you! Also, is the project component weighted more than the written portion?",
-    timestamp: "2026-03-23T11:25:00",
-  },
-  {
-    id: "4",
-    sender: "instructor",
-    senderName: "Dr. Sarah Johnson",
-    content: "The exam is 60% written questions and 40% practical coding. Both sections are equally important for demonstrating your understanding.",
-    timestamp: "2026-03-23T14:15:00",
-  },
-];
-
 export const mockDiscussions = [
   {
     id: "1",
     courseId: "1",
     author: "Bob Smith",
+    authorId: "1",
+    authorRole: "student" as const,
     authorAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
     title: "Help with useEffect hook dependencies",
     content: "I'm getting an infinite loop warning when using useEffect. Can someone explain how to properly set dependencies?",
     timestamp: "2026-03-24T09:15:00",
-    replies: 5,
-    likes: 12,
+    replies: 1,
+    likes: 2,
+    likedBy: ["1", "2"],
+    comments: [
+      {
+        id: "comment-1",
+        authorId: "2",
+        authorName: "Carol Williams",
+        authorRole: "student" as const,
+        content: "Try checking whether a state update inside the effect depends on a value that also changes in that same effect.",
+        createdAt: "2026-03-24T10:00:00",
+      },
+    ],
   },
   {
     id: "2",
     courseId: "1",
     author: "Carol Williams",
+    authorId: "2",
+    authorRole: "student" as const,
     authorAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
     title: "Best practices for component organization",
     content: "What's the recommended folder structure for a large React project? Should we organize by feature or by component type?",
     timestamp: "2026-03-23T16:45:00",
-    replies: 8,
-    likes: 20,
+    replies: 1,
+    likes: 1,
+    likedBy: ["instructor-1"],
+    comments: [
+      {
+        id: "comment-2",
+        authorId: "instructor-1",
+        authorName: "Dr. Sarah Johnson",
+        authorRole: "instructor" as const,
+        content: "For this course, I recommend organizing by feature first so each module stays easier to maintain.",
+        createdAt: "2026-03-23T17:10:00",
+      },
+    ],
   },
 ];
 

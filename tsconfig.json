@@ -19,6 +19,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    "ignoreDeprecations": "6.0",
 
     /* Node types — fixes path / __dirname in vite.config.ts */
     "types": ["node", "vite/client"],

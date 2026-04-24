@@ -13,21 +13,44 @@ import {
   Pin,
   ArrowRight
 } from "lucide-react";
-import { mockCourses, mockAssignments, mockAnnouncements } from "../data/mockData";
 import { cn } from "../components/ui/utils";
+import {
+  listAnnouncements,
+  listAssignments,
+  listCourses,
+} from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 export function StudentDashboard() {
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const { data: coursesData, loading: coursesLoading } = useAsyncData(
+    () => listCourses(),
+    []
+  );
+  const { data: assignmentsData, loading: assignmentsLoading } = useAsyncData(
+    () => listAssignments(),
+    []
+  );
+  const { data: announcementsData, loading: announcementsLoading } = useAsyncData(
+    () => listAnnouncements(),
+    []
+  );
+  const courses = coursesData ?? [];
+  const assignments = assignmentsData ?? [];
+  const announcements = announcementsData ?? [];
+  const isLoading = coursesLoading || assignmentsLoading || announcementsLoading;
 
-  const upcomingAssignments = mockAssignments
+  const upcomingAssignments = assignments
     .map(a => ({
       ...a,
-      course: mockCourses.find(c => c.id === a.courseId),
+      course: courses.find(c => c.id === a.courseId),
     }))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 4);
 
-  const recentAnnouncements = mockAnnouncements.slice(0, 3);
+  const recentAnnouncements = announcements.slice(0, 3);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -64,9 +87,19 @@ export function StudentDashboard() {
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome back, John! 👋</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Welcome back, {session?.user.nameEn?.split(" ")[0] ?? "Student"}! 👋
+        </h1>
         <p className="text-gray-600 mt-1">Here's what's happening with your courses today.</p>
       </div>
+
+      {isLoading ? (
+        <Card className="mb-6">
+          <CardContent className="p-6 text-sm text-gray-600">
+            Loading dashboard data...
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -75,7 +108,7 @@ export function StudentDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active Courses</p>
-                <p className="text-2xl font-bold mt-1">{mockCourses.length}</p>
+                <p className="text-2xl font-bold mt-1">{courses.length}</p>
               </div>
               <BookOpen className="h-8 w-8 text-blue-600" />
             </div>
@@ -88,7 +121,7 @@ export function StudentDashboard() {
               <div>
                 <p className="text-sm text-gray-600">Pending Tasks</p>
                 <p className="text-2xl font-bold mt-1">
-                  {mockAssignments.filter(a => a.status === "not_submitted").length}
+                  {assignments.filter(a => a.status === "not_submitted").length}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-orange-600" />
@@ -102,7 +135,7 @@ export function StudentDashboard() {
               <div>
                 <p className="text-sm text-gray-600">Submitted</p>
                 <p className="text-2xl font-bold mt-1">
-                  {mockAssignments.filter(a => a.status === "submitted").length}
+                  {assignments.filter(a => a.status === "submitted").length}
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -127,7 +160,7 @@ export function StudentDashboard() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {mockCourses.map((course) => (
+              {courses.map((course) => (
                 <Card 
                   key={course.id} 
                   className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -165,7 +198,13 @@ export function StudentDashboard() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
-              <Button variant="link" className="text-blue-600">View All</Button>
+              <Button
+                variant="link"
+                className="text-blue-600"
+                onClick={() => navigate("/deadlines")}
+              >
+                View All
+              </Button>
             </div>
             <Card>
               <CardContent className="p-0">
@@ -242,7 +281,7 @@ export function StudentDashboard() {
                   <span className="text-sm font-medium">Submitted</span>
                 </div>
                 <span className="text-lg font-bold text-green-600">
-                  {mockAssignments.filter(a => a.status === "submitted").length}
+                  {assignments.filter(a => a.status === "submitted").length}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
@@ -251,7 +290,7 @@ export function StudentDashboard() {
                   <span className="text-sm font-medium">Pending</span>
                 </div>
                 <span className="text-lg font-bold text-orange-600">
-                  {mockAssignments.filter(a => a.status === "not_submitted").length}
+                  {assignments.filter(a => a.status === "not_submitted").length}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
@@ -260,7 +299,7 @@ export function StudentDashboard() {
                   <span className="text-sm font-medium">Late</span>
                 </div>
                 <span className="text-lg font-bold text-red-600">
-                  {mockAssignments.filter(a => a.status === "late").length}
+                  {assignments.filter(a => a.status === "late").length}
                 </span>
               </div>
             </CardContent>

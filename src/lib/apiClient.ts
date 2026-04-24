@@ -12,7 +12,9 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
+import { appConfig } from "@/lib/config/env";
+
+const BASE_URL = appConfig.apiBaseUrl;
 
 // ─── Types ────────────────────────────────────────────────────────
 
