@@ -1,8 +1,8 @@
 import { api } from "@/lib/apiClient";
 import { AUTH } from "@/lib/apiEndpoints";
 import { appConfig } from "@/lib/config/env";
+import type { AuthLoginResponse } from "@/lib/contracts/api";
 import type {
-  AuthLoginResponse,
   AuthSession,
   LoginFormInput,
   TuApiProfile,

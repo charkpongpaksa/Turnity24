@@ -9,14 +9,15 @@ import { cn } from "../components/ui/utils";
 import { listNotifications } from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { resolveNotificationLink } from "@/lib/notifications";
 
 export function NotificationsPage() {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { currentRole } = useAuth();
   const { data: notificationsData, loading } = useAsyncData(() => listNotifications(), []);
   const [readIds, setReadIds] = useState<string[]>([]);
   const notifications = notificationsData ?? [];
-  const isInstructor = session?.user.role === "instructor";
+  const isInstructor = currentRole === "instructor";
 
   const mergedNotifications = useMemo(
     () =>
@@ -86,7 +87,7 @@ export function NotificationsPage() {
               setReadIds((current) =>
                 current.includes(notification.id) ? current : [...current, notification.id]
               );
-              navigate(notification.link);
+              navigate(resolveNotificationLink(notification.link, currentRole));
             }}
           >
             <CardHeader className="pb-2">

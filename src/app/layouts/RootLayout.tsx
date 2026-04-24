@@ -141,57 +141,23 @@ export function RootLayout() {
                 </Button>
               </div>
             ) : null}
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <Badge 
-                      className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-red-500"
-                    >
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="max-h-96 overflow-y-auto">
-                  {notifications.slice(0, 5).map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className={cn(
-                        "flex flex-col items-start p-3 cursor-pointer",
-                        !notification.read && "bg-blue-50"
-                      )}
-                      onClick={() => navigate(notification.link)}
-                    >
-                      <div className="flex items-start justify-between w-full">
-                        <p className="font-medium text-sm">{notification.title}</p>
-                        {notification.urgent && (
-                          <Badge variant="destructive" className="ml-2">Urgent</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(notification.timestamp).toLocaleString()}
-                      </p>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="justify-center"
-                  onClick={() =>
-                    navigate(isInstructorView ? "/instructor/notifications" : "/notifications")
-                  }
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() =>
+                navigate(isInstructorView ? "/instructor/notifications" : "/notifications")
+              }
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge 
+                  className="pointer-events-none absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center p-0 text-xs bg-red-500"
                 >
-                  View all notifications
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {unreadCount}
+                </Badge>
+              )}
+            </Button>
 
             {/* Profile */}
             <DropdownMenu>

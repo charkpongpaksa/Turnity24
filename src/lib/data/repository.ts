@@ -11,50 +11,33 @@ import {
 } from "@/lib/apiEndpoints";
 import { appConfig, assertApiConfigured } from "@/lib/config/env";
 import type {
+  AddStudentToCourseRequest,
+  AnnouncementsListResponse,
+  AssignmentsListResponse,
+  CourseStudentsResponse,
+  CoursesListResponse,
+  CreateAnnouncementRequest,
+  CreateCourseRequest,
+  CreateDiscussionCommentRequest,
+  CreateDiscussionRequest,
+  DiscussionsListResponse,
+  NotificationsListResponse,
+  SubmissionsListResponse,
+  UpdateAnnouncementRequest,
+  UpdateCourseRequest,
+  UpdateDiscussionRequest,
+} from "@/lib/contracts/api";
+import type {
   Announcement,
   Assignment,
   Course,
   CurrentUser,
   Discussion,
-  DiscussionComment,
   Notification,
   Student,
   SubmissionRecord,
 } from "@/lib/types/models";
 import * as mockRepository from "./mockRepository";
-
-export type CreateCourseInput = {
-  name: string;
-  code: string;
-  instructor: string;
-};
-
-export type UpdateCourseInput = Partial<
-  Pick<Course, "name" | "code" | "instructor">
->;
-
-export type CreateAnnouncementInput = Pick<
-  Announcement,
-  "title" | "content" | "author" | "pinned"
->;
-
-export type UpdateAnnouncementInput = Partial<
-  Pick<Announcement, "title" | "content" | "pinned">
->;
-
-export type CreateDiscussionInput = Pick<
-  Discussion,
-  "title" | "content" | "author" | "authorAvatar" | "authorId" | "authorRole"
->;
-
-export type UpdateDiscussionInput = Partial<
-  Pick<Discussion, "title" | "content">
->;
-
-export type CreateDiscussionCommentInput = Omit<
-  DiscussionComment,
-  "id" | "createdAt"
->;
 
 async function withDataSource<T>(
   apiLoader: () => Promise<T>,
@@ -70,7 +53,7 @@ async function withDataSource<T>(
 
 export function listCourses(): Promise<Course[]> {
   return withDataSource(
-    () => api.get<Course[]>(COURSES.LIST),
+    () => api.get<CoursesListResponse>(COURSES.LIST),
     () => mockRepository.listCourses()
   );
 }
@@ -82,7 +65,7 @@ export function getCourseById(id: string): Promise<Course | null> {
   );
 }
 
-export function createCourse(input: CreateCourseInput): Promise<Course> {
+export function createCourse(input: CreateCourseRequest): Promise<Course> {
   return withDataSource(
     () => api.post<Course>(COURSES.CREATE, input),
     () => mockRepository.createCourse(input)
@@ -91,7 +74,7 @@ export function createCourse(input: CreateCourseInput): Promise<Course> {
 
 export function updateCourse(
   courseId: string,
-  input: UpdateCourseInput
+  input: UpdateCourseRequest
 ): Promise<Course | null> {
   return withDataSource(
     () => api.put<Course>(buildPath(COURSES.UPDATE, { courseId }), input),
@@ -106,7 +89,7 @@ export function listAssignments(courseId?: string): Promise<Assignment[]> {
         const courses = await listCourses();
         const assignments = await Promise.all(
           courses.map((course) =>
-            api.get<Assignment[]>(
+            api.get<AssignmentsListResponse>(
               buildPath(ASSIGNMENTS.LIST, { courseId: course.id })
             )
           )
@@ -118,7 +101,7 @@ export function listAssignments(courseId?: string): Promise<Assignment[]> {
   }
 
   return withDataSource(
-    () => api.get<Assignment[]>(buildPath(ASSIGNMENTS.LIST, { courseId })),
+    () => api.get<AssignmentsListResponse>(buildPath(ASSIGNMENTS.LIST, { courseId })),
     () => mockRepository.listAssignments(courseId)
   );
 }
@@ -156,7 +139,7 @@ export function listAnnouncements(courseId?: string): Promise<Announcement[]> {
         const courses = await listCourses();
         const announcements = await Promise.all(
           courses.map((course) =>
-            api.get<Announcement[]>(
+            api.get<AnnouncementsListResponse>(
               buildPath(ANNOUNCEMENTS.LIST, { courseId: course.id })
             )
           )
@@ -168,14 +151,14 @@ export function listAnnouncements(courseId?: string): Promise<Announcement[]> {
   }
 
   return withDataSource(
-    () => api.get<Announcement[]>(buildPath(ANNOUNCEMENTS.LIST, { courseId })),
+    () => api.get<AnnouncementsListResponse>(buildPath(ANNOUNCEMENTS.LIST, { courseId })),
     () => mockRepository.listAnnouncements(courseId)
   );
 }
 
 export function createAnnouncement(
   courseId: string,
-  input: CreateAnnouncementInput
+  input: CreateAnnouncementRequest
 ): Promise<Announcement> {
   return withDataSource(
     () =>
@@ -187,7 +170,7 @@ export function createAnnouncement(
 export function updateAnnouncement(
   courseId: string,
   announcementId: string,
-  input: UpdateAnnouncementInput
+  input: UpdateAnnouncementRequest
 ): Promise<Announcement | null> {
   return withDataSource(
     () =>
@@ -201,7 +184,7 @@ export function updateAnnouncement(
 
 export function listNotifications(): Promise<Notification[]> {
   return withDataSource(
-    () => api.get<Notification[]>(NOTIFICATIONS.LIST),
+    () => api.get<NotificationsListResponse>(NOTIFICATIONS.LIST),
     () => mockRepository.listNotifications()
   );
 }
@@ -210,7 +193,7 @@ export function listDiscussions(courseId?: string): Promise<Discussion[]> {
   return withDataSource(
     async () => {
       if (!courseId) return [];
-      return api.get<Discussion[]>(buildPath(DISCUSSIONS.LIST, { courseId }));
+      return api.get<DiscussionsListResponse>(buildPath(DISCUSSIONS.LIST, { courseId }));
     },
     () => mockRepository.listDiscussions(courseId)
   );
@@ -218,7 +201,7 @@ export function listDiscussions(courseId?: string): Promise<Discussion[]> {
 
 export function createDiscussion(
   courseId: string,
-  input: CreateDiscussionInput
+  input: CreateDiscussionRequest
 ): Promise<Discussion> {
   return withDataSource(
     () => api.post<Discussion>(buildPath(DISCUSSIONS.CREATE, { courseId }), input),
@@ -229,7 +212,7 @@ export function createDiscussion(
 export function updateDiscussion(
   courseId: string,
   discussionId: string,
-  input: UpdateDiscussionInput
+  input: UpdateDiscussionRequest
 ): Promise<Discussion | null> {
   return withDataSource(
     () =>
@@ -257,7 +240,7 @@ export function deleteDiscussion(
 export function addDiscussionComment(
   courseId: string,
   discussionId: string,
-  input: CreateDiscussionCommentInput
+  input: CreateDiscussionCommentRequest
 ): Promise<Discussion | null> {
   return withDataSource(
     () =>
@@ -293,7 +276,7 @@ export function listStudents(): Promise<Student[]> {
 
 export function listCourseStudents(courseId: string): Promise<Student[]> {
   return withDataSource(
-    () => api.get<Student[]>(buildPath(COURSES.STUDENTS, { courseId })),
+    () => api.get<CourseStudentsResponse>(buildPath(COURSES.STUDENTS, { courseId })),
     () => mockRepository.listCourseStudents(courseId)
   );
 }
@@ -304,9 +287,9 @@ export function addStudentToCourse(
 ): Promise<Student[]> {
   return withDataSource(
     () =>
-      api.post<Student[]>(buildPath(COURSES.ADD_STUDENT, { courseId }), {
+      api.post<CourseStudentsResponse>(buildPath(COURSES.ADD_STUDENT, { courseId }), {
         studentId,
-      }),
+      } satisfies AddStudentToCourseRequest),
     () => mockRepository.addStudentToCourse(courseId, studentId)
   );
 }
@@ -317,7 +300,7 @@ export function removeStudentFromCourse(
 ): Promise<Student[]> {
   return withDataSource(
     () =>
-      api.delete<Student[]>(
+      api.delete<CourseStudentsResponse>(
         buildPath(COURSES.REMOVE_STUDENT, { courseId, studentId })
       ),
     () => mockRepository.removeStudentFromCourse(courseId, studentId)
@@ -331,7 +314,7 @@ export function listSubmissions(input?: {
   return withDataSource(
     async () => {
       if (!input?.courseId || !input.assignmentId) return [];
-      return api.get<SubmissionRecord[]>(
+      return api.get<SubmissionsListResponse>(
         buildPath(SUBMISSIONS.LIST, {
           courseId: input.courseId,
           assignmentId: input.assignmentId,

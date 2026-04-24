@@ -52,7 +52,7 @@ src/
     pages/
     routes.tsx
   features/
-    auth/
+  auth/
       AuthProvider.tsx
       ProtectedRoute.tsx
       LoginPage.tsx
@@ -62,6 +62,7 @@ src/
       auth.utils.ts
   lib/
     apiClient.ts
+    contracts/
     apiEndpoints.ts
     config/
     data/
@@ -70,6 +71,10 @@ src/
     types/
   test/
     setup.ts
+backend/
+  template.yaml
+  functions/
+  shared/
 ```
 
 ## Key files
@@ -84,12 +89,18 @@ src/
   Maps TU account types to app roles
 - [`src/lib/data/repository.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/data/repository.ts)
   Central data access layer for the app
+- [`src/lib/contracts/api.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/contracts/api.ts)
+  Shared request and response types for the backend contract
 - [`src/lib/hooks/useAsyncData.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/hooks/useAsyncData.ts)
   Shared async loading hook used across pages and layouts
 - [`src/lib/mocks/mockData.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/mocks/mockData.ts)
   Centralized mock dataset for local UI development
 - [`src/lib/config/env.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/config/env.ts)
   Centralized environment configuration
+- [`backend/template.yaml`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend/template.yaml)
+  AWS SAM infrastructure definition for the backend scaffold
+- [`backend/README.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend/README.md)
+  Explains how the backend scaffold maps local files to AWS Lambda/API Gateway
 
 ## Run locally
 
@@ -178,10 +189,40 @@ Suggested backend response:
 
 The frontend then maps that TU profile into the internal user/session model.
 
+## Full backend contract
+
+The current recommended API contract for the whole app is documented in:
+
+- [`docs/BACKEND_API_CONTRACT.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/docs/BACKEND_API_CONTRACT.md)
+
+The matching TypeScript contract types live in:
+
+- [`src/lib/contracts/api.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/contracts/api.ts)
+
+## Backend scaffold
+
+This repo now also includes a starter AWS SAM backend scaffold in:
+
+- [`backend/`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend)
+
+It includes starter Lambda handlers for:
+
+- `/auth/login`
+- `GET /courses`
+- `POST /courses`
+- `GET /courses/{courseId}`
+- `GET/POST/DELETE /courses/{courseId}/students`
+
+These handlers are currently scaffolded to make local development and AWS deployment easier. They are the next place to continue backend implementation.
+
 ## Next recommended step
 
-The next best improvement is to build the real backend `/auth/login` Lambda or server route that:
+The next best improvement is to build the real backend endpoints in this order:
 
-1. calls the TU API securely
-2. maps TU account type to your app role
-3. returns an app token/session to this frontend
+1. `/auth/login`
+2. `/courses`
+3. `/courses/{courseId}`
+4. `/courses/{courseId}/students`
+5. `/courses/{courseId}/announcements`
+6. `/courses/{courseId}/discussions`
+7. `/notifications`

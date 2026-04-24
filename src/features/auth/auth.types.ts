@@ -55,10 +55,3 @@ export type AuthSession = {
   user: AuthUser;
   activeRole: AppRole;
 };
-
-export type AuthLoginResponse = {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt: string;
-  profile: TuApiProfile;
-};
