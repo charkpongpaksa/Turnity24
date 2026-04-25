@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy-frontend": "npm run build && aws s3 sync dist/ s3://$(aws cloudformation describe-stacks --stack-name turnity-backend-dev --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text) --delete"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
