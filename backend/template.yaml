@@ -65,7 +65,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/auth-login/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AuthLogin:
           Type: HttpApi
@@ -78,7 +78,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CoursesList:
           Type: HttpApi
@@ -91,7 +91,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CoursesCreate:
           Type: HttpApi
@@ -104,7 +104,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-detail/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CourseDetail:
           Type: HttpApi
@@ -117,7 +117,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-students/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CourseStudentsList:
           Type: HttpApi
@@ -142,7 +142,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AnnouncementsList:
           Type: HttpApi
@@ -155,7 +155,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AnnouncementsCreate:
           Type: HttpApi
@@ -168,7 +168,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AssignmentsList:
           Type: HttpApi
