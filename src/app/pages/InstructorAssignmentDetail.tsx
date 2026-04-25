@@ -17,10 +17,12 @@ import {
   Users,
   Edit,
   Eye,
+  Trash2,
 } from "lucide-react";
-import { mockCourses, mockAssignments } from "../data/mockData";
 import { cn } from "../components/ui/utils";
 import { toast } from "sonner";
+import { deleteAssignment, getAssignmentById, getCourseById } from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
 
 
 export function InstructorAssignmentDetail() {
@@ -29,13 +31,27 @@ export function InstructorAssignmentDetail() {
   
   const [showEditDeadlineModal, setShowEditDeadlineModal] = useState(false);
   const [showEditAssignmentModal, setShowEditAssignmentModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
 
   const [editAssignmentData, setEditAssignmentData] = useState<Partial<AssignmentFormData> | null>(null);
 
-  const course = mockCourses.find(c => c.id === courseId);
-  const assignment = mockAssignments.find(a => a.id === assignmentId);
+  const { data: course, loading: courseLoading } = useAsyncData(
+    () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
+    [courseId]
+  );
+  const { data: assignment, loading: assignmentLoading } = useAsyncData(
+    () =>
+      courseId && assignmentId
+        ? getAssignmentById(courseId, assignmentId)
+        : Promise.resolve(null),
+    [courseId, assignmentId]
+  );
+
+  if (courseLoading || assignmentLoading) {
+    return <div className="p-6">Loading assignment...</div>;
+  }
 
   if (!course || !assignment) {
     return <div className="p-6">Assignment not found</div>;
@@ -96,6 +112,19 @@ export function InstructorAssignmentDetail() {
     toast.success("Assignment updated successfully!");
     toast.info(`"${data.title}" saved with ${data.attachments.length} attachment(s)`);
     setShowEditAssignmentModal(false);
+  };
+
+  const handleDeleteAssignment = async () => {
+    if (!courseId || !assignmentId) return;
+
+    const deleted = await deleteAssignment(courseId, assignmentId);
+    if (!deleted) {
+      toast.error("Unable to delete assignment");
+      return;
+    }
+
+    toast.success("Assignment deleted");
+    navigate(`/instructor/course/${courseId}`);
   };
 
   const getDaysUntil = (dueDate: string) => {
@@ -249,6 +278,15 @@ export function InstructorAssignmentDetail() {
                   <Clock className="h-4 w-4 mr-2" />
                   Edit Deadline
                 </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Assignment
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -347,6 +385,28 @@ export function InstructorAssignmentDetail() {
           mode="edit"
         />
       )}
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Assignment</DialogTitle>
+            <DialogDescription>
+              This will remove "{assignment.title}" from this course. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDeleteAssignment}
+            >
+              Delete Assignment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -35,6 +35,9 @@ export const COURSES = {
   DETAIL:     "/courses/{courseId}",           // GET        → Lambda: courses-detail
   UPDATE:     "/courses/{courseId}",           // PUT        → Lambda: courses-update  (instructor)
   DELETE:     "/courses/{courseId}",           // DELETE     → Lambda: courses-delete  (instructor)
+  STUDENTS:   "/courses/{courseId}/students",  // GET        → Lambda: courses-students-list
+  ADD_STUDENT:"/courses/{courseId}/students",  // POST       → Lambda: courses-students-add
+  REMOVE_STUDENT: "/courses/{courseId}/students/{studentId}", // DELETE → Lambda: courses-students-remove
   ENROLL:     "/courses/{courseId}/enroll",    // POST       → Lambda: courses-enroll  (student)
 } as const;
 
@@ -88,16 +91,10 @@ export const DISCUSSIONS = {
   LIST:       "/courses/{courseId}/discussions",                                          // GET  → Lambda: discussions-list
   CREATE:     "/courses/{courseId}/discussions",                                          // POST → Lambda: discussions-create
   DETAIL:     "/courses/{courseId}/discussions/{discussionId}",                           // GET  → Lambda: discussions-detail
+  UPDATE:     "/courses/{courseId}/discussions/{discussionId}",                           // PUT  → Lambda: discussions-update
+  DELETE:     "/courses/{courseId}/discussions/{discussionId}",                           // DELETE → Lambda: discussions-delete (instructor)
   REPLY:      "/courses/{courseId}/discussions/{discussionId}/replies",                   // POST → Lambda: discussions-reply
   LIKE:       "/courses/{courseId}/discussions/{discussionId}/like",                      // POST → Lambda: discussions-like
-} as const;
-
-// ─── Messages ─────────────────────────────────────────────────────
-export const MESSAGES = {
-  CONVERSATIONS: "/messages/conversations",                        // GET  → Lambda: messages-conversations
-  THREAD:        "/messages/conversations/{conversationId}",       // GET  → Lambda: messages-thread
-  SEND:          "/messages/conversations/{conversationId}",       // POST → Lambda: messages-send
-  NEW:           "/messages/conversations",                        // POST → Lambda: messages-new-conversation
 } as const;
 
 // ─── Notifications ────────────────────────────────────────────────

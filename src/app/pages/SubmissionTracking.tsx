@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
@@ -15,7 +16,6 @@ import {
 } from "../components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
-  ArrowLeft, 
   Search,
   Download,
   CheckCircle,
@@ -23,25 +23,79 @@ import {
   Clock,
   Filter
 } from "lucide-react";
-import { mockCourses, mockAssignments, mockStudents, mockSubmissions } from "../data/mockData";
-import { cn } from "../components/ui/utils";
+import { toast } from "sonner";
+import { PageBackButton } from "../components/PageBackButton";
+import {
+  getAssignmentById,
+  getCourseById,
+  listStudents,
+  listSubmissions,
+} from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
 
 export function SubmissionTracking() {
   const { courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "submitted" | "missing" | "late">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [gradeFilter, setGradeFilter] = useState<"all" | "graded" | "ungraded">("all");
+  const [minScore, setMinScore] = useState("");
+  const [maxScore, setMaxScore] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
-  const course = mockCourses.find(c => c.id === courseId);
-  const assignment = mockAssignments.find(a => a.id === assignmentId);
+  const { data: course, loading: courseLoading } = useAsyncData(
+    () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
+    [courseId]
+  );
+  const { data: assignment, loading: assignmentLoading } = useAsyncData(
+    () =>
+      courseId && assignmentId
+        ? getAssignmentById(courseId, assignmentId)
+        : Promise.resolve(null),
+    [courseId, assignmentId]
+  );
+  const { data: studentsData, loading: studentsLoading } = useAsyncData(
+    () => listStudents(),
+    []
+  );
+  const { data: submissionsData, loading: submissionsLoading } = useAsyncData(
+    () => listSubmissions({ courseId, assignmentId }),
+    [assignmentId, courseId]
+  );
+  const students = studentsData ?? [];
+  const submissions = submissionsData ?? [];
+  const [localSubmissions, setLocalSubmissions] = useState(submissions);
+  const [gradeDrafts, setGradeDrafts] = useState<Record<string, string>>(
+    Object.fromEntries(
+      submissions
+        .filter((submission) => submission.score !== null)
+        .map((submission) => [submission.studentId, String(submission.score)])
+    )
+  );
+
+  useEffect(() => {
+    setLocalSubmissions(submissions);
+    setGradeDrafts(
+      Object.fromEntries(
+        submissions
+          .filter((submission) => submission.score !== null)
+          .map((submission) => [submission.studentId, String(submission.score)])
+      )
+    );
+  }, [submissions]);
+
+  if (courseLoading || assignmentLoading || studentsLoading || submissionsLoading) {
+    return <div className="p-6">Loading submissions...</div>;
+  }
 
   if (!course || !assignment) {
     return <div className="p-6">Assignment not found</div>;
   }
 
   // Combine student and submission data
-  const studentSubmissions = mockStudents.map(student => {
-    const submission = mockSubmissions.find(
+  const studentSubmissions = students.map(student => {
+    const submission = localSubmissions.find(
       s => s.studentId === student.id && s.assignmentId === assignmentId
     );
     return {
@@ -61,7 +115,33 @@ export function SubmissionTracking() {
     if (filter === "submitted") return item.submission?.status === "submitted";
     if (filter === "missing") return !item.submission || item.submission.status === "missing";
     if (filter === "late") return item.submission?.status === "late";
-    
+
+    return true;
+  }).filter((item) => {
+    if (gradeFilter === "graded" && item.submission?.score == null) {
+      return false;
+    }
+
+    if (gradeFilter === "ungraded" && item.submission?.score != null) {
+      return false;
+    }
+
+    const score = item.submission?.score;
+    const parsedMinScore = minScore ? Number(minScore) : null;
+    const parsedMaxScore = maxScore ? Number(maxScore) : null;
+
+    if (parsedMinScore !== null && !Number.isNaN(parsedMinScore)) {
+      if (score == null || score < parsedMinScore) {
+        return false;
+      }
+    }
+
+    if (parsedMaxScore !== null && !Number.isNaN(parsedMaxScore)) {
+      if (score == null || score > parsedMaxScore) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -90,17 +170,58 @@ export function SubmissionTracking() {
     .reduce((acc, s) => acc + (s.submission?.score || 0), 0) / 
     studentSubmissions.filter(s => s.submission?.score).length || 0;
 
+  const selectedSubmission =
+    studentSubmissions.find((item) => item.id === selectedStudentId) ?? null;
+
+  const saveGrade = (studentId: string) => {
+    const rawGrade = gradeDrafts[studentId];
+    const numericGrade = Number(rawGrade);
+
+    if (Number.isNaN(numericGrade) || numericGrade < 0 || numericGrade > assignment.points) {
+      toast.error(`Enter a grade between 0 and ${assignment.points}`);
+      return;
+    }
+
+    setLocalSubmissions((current) =>
+      current.map((submission) =>
+        submission.studentId === studentId && submission.assignmentId === assignmentId
+          ? { ...submission, score: numericGrade }
+          : submission
+      )
+    );
+    toast.success("Grade saved");
+  };
+
+  const getSubmissionPreview = () => {
+    if (!selectedSubmission?.submission) return null;
+
+    if (assignment.type === "text") {
+      return {
+        title: "Text Submission",
+        body: `${selectedSubmission.name} submitted a written response for "${assignment.title}". This is a mock preview for frontend testing.`,
+      };
+    }
+
+    if (assignment.type === "link") {
+      return {
+        title: "Submitted Link",
+        body: `https://projects.example.edu/${selectedSubmission.name.toLowerCase().replace(/\s+/g, "-")}/${assignment.id}`,
+      };
+    }
+
+    return {
+      title: "Submitted Files",
+      body: `${selectedSubmission.name}_assignment_${assignment.id}.pdf\n${selectedSubmission.name}_appendix.zip`,
+    };
+  };
+
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
-        className="mb-4"
-        onClick={() => navigate(`/instructor/course/${courseId}/assignment/${assignmentId}`)}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Assignment
-      </Button>
+      <PageBackButton
+        to={`/instructor/course/${courseId}/assignment/${assignmentId}`}
+        label="Back to Assignment"
+      />
 
       {/* Header */}
       <div className="mb-6">
@@ -172,6 +293,58 @@ export function SubmissionTracking() {
               </TabsList>
             </Tabs>
           </div>
+          {showAdvancedFilters ? (
+            <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Grade status</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={gradeFilter === "all" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={gradeFilter === "graded" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("graded")}
+                  >
+                    Graded
+                  </Button>
+                  <Button
+                    variant={gradeFilter === "ungraded" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("ungraded")}
+                  >
+                    Ungraded
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Minimum score</p>
+                <Input
+                  type="number"
+                  min="0"
+                  max={assignment.points}
+                  value={minScore}
+                  onChange={(event) => setMinScore(event.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Maximum score</p>
+                <Input
+                  type="number"
+                  min="0"
+                  max={assignment.points}
+                  value={maxScore}
+                  onChange={(event) => setMaxScore(event.target.value)}
+                  placeholder={String(assignment.points)}
+                />
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -184,9 +357,13 @@ export function SubmissionTracking() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+            >
               <Filter className="h-4 w-4 mr-2" />
-              Advanced Filter
+              {showAdvancedFilters ? "Hide Filters" : "Advanced Filter"}
             </Button>
           </div>
         </CardHeader>
@@ -250,7 +427,13 @@ export function SubmissionTracking() {
                             <Input
                               type="number"
                               className="w-20 h-8"
-                              value={item.submission.score}
+                              value={gradeDrafts[item.id] ?? String(item.submission.score)}
+                              onChange={(event) =>
+                                setGradeDrafts((current) => ({
+                                  ...current,
+                                  [item.id]: event.target.value,
+                                }))
+                              }
                               max={assignment.points}
                               min={0}
                             />
@@ -261,6 +444,13 @@ export function SubmissionTracking() {
                             type="number"
                             className="w-20 h-8"
                             placeholder="Grade"
+                            value={gradeDrafts[item.id] ?? ""}
+                            onChange={(event) =>
+                              setGradeDrafts((current) => ({
+                                ...current,
+                                [item.id]: event.target.value,
+                              }))
+                            }
                             max={assignment.points}
                             min={0}
                           />
@@ -271,10 +461,19 @@ export function SubmissionTracking() {
                       <TableCell className="text-right">
                         {item.submission?.status === "submitted" || item.submission?.status === "late" ? (
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedStudentId(item.id)}
+                            >
                               View
                             </Button>
-                            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700"
+                              onClick={() => saveGrade(item.id)}
+                            >
                               Grade
                             </Button>
                           </div>
@@ -303,6 +502,49 @@ export function SubmissionTracking() {
           <Button className="bg-blue-600 hover:bg-blue-700">Grade All Submissions</Button>
         </div>
       </div>
+
+      <Dialog
+        open={Boolean(selectedSubmission)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedStudentId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Submission Review</DialogTitle>
+            <DialogDescription>
+              View the submitted work for {selectedSubmission?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSubmission?.submission ? (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-gray-50 p-4">
+                <p className="text-sm text-gray-600">Submission type</p>
+                <p className="font-medium text-gray-900">{assignment.type}</p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-4">
+                <p className="mb-2 text-sm font-medium text-gray-900">
+                  {getSubmissionPreview()?.title}
+                </p>
+                <pre className="whitespace-pre-wrap text-sm text-gray-600">
+                  {getSubmissionPreview()?.body}
+                </pre>
+              </div>
+              <div className="text-sm text-gray-500">
+                Submitted at{" "}
+                {selectedSubmission.submission.submittedAt
+                  ? new Date(selectedSubmission.submission.submittedAt).toLocaleString()
+                  : "-"}
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedStudentId(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

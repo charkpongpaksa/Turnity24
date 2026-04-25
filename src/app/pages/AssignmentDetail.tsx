@@ -13,15 +13,28 @@ import {
   Calendar,
   Upload
 } from "lucide-react";
-import { mockCourses, mockAssignments } from "../data/mockData";
 import { cn } from "../components/ui/utils";
+import { getAssignmentById, getCourseById } from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
 
 export function AssignmentDetail() {
   const { courseId, assignmentId } = useParams();
   const navigate = useNavigate();
+  const { data: course, loading: courseLoading } = useAsyncData(
+    () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
+    [courseId]
+  );
+  const { data: assignment, loading: assignmentLoading } = useAsyncData(
+    () =>
+      courseId && assignmentId
+        ? getAssignmentById(courseId, assignmentId)
+        : Promise.resolve(null),
+    [courseId, assignmentId]
+  );
 
-  const course = mockCourses.find(c => c.id === courseId);
-  const assignment = mockAssignments.find(a => a.id === assignmentId);
+  if (courseLoading || assignmentLoading) {
+    return <div className="p-6">Loading assignment...</div>;
+  }
 
   if (!course || !assignment) {
     return <div className="p-6">Assignment not found</div>;

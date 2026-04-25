@@ -9,36 +9,35 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  AlertCircle
 } from "lucide-react";
-import { mockCourses, mockAssignments, mockSubmissions } from "../data/mockData";
 import { cn } from "../components/ui/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { listAssignments, listCourses, listSubmissions } from "@/lib/data/repository";
+import { useAsyncData } from "@/lib/hooks/useAsyncData";
 
 export function InstructorDashboard() {
   const navigate = useNavigate();
+  const { data: coursesData, loading: coursesLoading } = useAsyncData(() => listCourses(), []);
+  const { data: assignmentsData, loading: assignmentsLoading } = useAsyncData(
+    () => listAssignments(),
+    []
+  );
+  const { data: submissionsData, loading: submissionsLoading } = useAsyncData(
+    () => listSubmissions(),
+    []
+  );
+  const courses = coursesData ?? [];
+  const assignments = assignmentsData ?? [];
+  const submissions = submissionsData ?? [];
 
-  const totalStudents = mockCourses.reduce((acc, course) => acc + course.students, 0);
-  const totalAssignments = mockAssignments.length;
+  const totalStudents = courses.reduce((acc, course) => acc + course.students, 0);
+  const totalAssignments = assignments.length;
   
   const submissionStats = {
-    submitted: mockSubmissions.filter(s => s.status === "submitted").length,
-    missing: mockSubmissions.filter(s => s.status === "missing").length,
-    late: mockSubmissions.filter(s => s.status === "late").length,
+    submitted: submissions.filter(s => s.status === "submitted").length,
+    missing: submissions.filter(s => s.status === "missing").length,
+    late: submissions.filter(s => s.status === "late").length,
   };
-
-  const pieData = [
-    { name: "Submitted", value: submissionStats.submitted, color: "#10b981" },
-    { name: "Missing", value: submissionStats.missing, color: "#ef4444" },
-    { name: "Late", value: submissionStats.late, color: "#f97316" },
-  ];
-
-  const assignmentData = mockAssignments.map((assignment, index) => ({
-    id: `assignment-${assignment.id}-${index}`,
-    name: `${assignment.title.slice(0, 18)}...`,
-    fullName: assignment.title,
-    submissions: Math.floor(Math.random() * 45) + 30,
-  }));
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
@@ -46,6 +45,10 @@ export function InstructorDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Instructor Dashboard 🎓</h1>
         <p className="text-gray-600 mt-1">Manage your courses and track student progress.</p>
       </div>
+
+      {coursesLoading || assignmentsLoading || submissionsLoading ? (
+        <p className="mb-4 text-sm text-gray-600">Loading instructor dashboard...</p>
+      ) : null}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -66,7 +69,7 @@ export function InstructorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active Courses</p>
-                <p className="text-2xl font-bold mt-1">{mockCourses.length}</p>
+                <p className="text-2xl font-bold mt-1">{courses.length}</p>
               </div>
               <BookOpen className="h-8 w-8 text-purple-600" />
             </div>
@@ -102,7 +105,7 @@ export function InstructorDashboard() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {mockCourses.map((course) => (
+              {courses.map((course) => (
                 <Card 
                   key={course.id} 
                   className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -133,7 +136,7 @@ export function InstructorDashboard() {
                           Assignments
                         </span>
                         <span className="font-medium">
-                          {mockAssignments.filter(a => a.courseId === course.id).length}
+                          {assignments.filter(a => a.courseId === course.id).length}
                         </span>
                       </div>
                       <Button 
@@ -172,8 +175,8 @@ export function InstructorDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockAssignments.slice(0, 5).map((assignment) => {
-                    const course = mockCourses.find(c => c.id === assignment.courseId);
+                  {assignments.slice(0, 5).map((assignment) => {
+                    const course = courses.find(c => c.id === assignment.courseId);
                     const totalStudents = course?.students || 0;
                     const submitted = Math.floor(Math.random() * totalStudents * 0.7) + Math.floor(totalStudents * 0.2);
                     const missing = Math.floor(Math.random() * (totalStudents - submitted) * 0.5);
