@@ -15,6 +15,9 @@ Recommended workflow:
 Current scaffold:
 
 - `template.yaml`
+- `samconfig.example.toml`
+- `env.json.example`
+- `events/`
 - `functions/auth-login`
 - `functions/courses-list`
 - `functions/courses-create`
@@ -38,6 +41,11 @@ Current handlers:
 ```text
 backend/
   template.yaml
+  samconfig.example.toml
+  env.json.example
+  events/
+    auth-login.json
+    courses-create.json
   functions/
     auth-login/
       index.js
@@ -104,7 +112,15 @@ For local API testing:
 
 ```bash
 cd backend
-sam local start-api
+sam local start-api --env-vars env.json.example
+```
+
+For single function testing:
+
+```bash
+cd backend
+sam local invoke AuthLoginFunction --event events/auth-login.json --env-vars env.json.example
+sam local invoke CoursesCreateFunction --event events/courses-create.json --env-vars env.json.example
 ```
 
 ## Frontend integration
@@ -116,3 +132,9 @@ When your backend is deployed:
 3. set `VITE_DATA_SOURCE=api`
 
 Then the frontend repository layer can start calling these real endpoints.
+
+## Learner Lab deploy guide
+
+See:
+
+- [`docs/LEARNER_LAB_SAM_DEPLOY.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/docs/LEARNER_LAB_SAM_DEPLOY.md)

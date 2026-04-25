@@ -11,6 +11,7 @@ import { NotificationsPage } from "./pages/NotificationsPage";
 import { RootLayout } from "./layouts/RootLayout";
 import { NotFound } from "./pages/NotFound";
 import { UpcomingDeadlinesPage } from "./pages/UpcomingDeadlinesPage";
+import { SearchResultsPage } from "./pages/SearchResultsPage";
 import { HomeRedirect } from "@/features/auth/HomeRedirect";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "student", Component: StudentDashboard },
               { path: "courses", Component: AllCourses },
+              { path: "search", Component: SearchResultsPage },
               { path: "deadlines", Component: UpcomingDeadlinesPage },
               { path: "notifications", Component: NotificationsPage },
               { path: "course/:courseId", Component: ClassroomPage },
@@ -45,6 +47,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "instructor", Component: InstructorDashboard },
               { path: "instructor/courses", Component: AllCourses },
+              { path: "instructor/search", Component: SearchResultsPage },
               { path: "instructor/deadlines", Component: UpcomingDeadlinesPage },
               { path: "instructor/notifications", Component: NotificationsPage },
               { path: "instructor/course/:courseId", Component: ClassroomPage },

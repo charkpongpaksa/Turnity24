@@ -6,12 +6,14 @@ import {
   Search, 
   GraduationCap,
   Menu,
-  X
+  X,
+  FileText,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
+import { Card, CardContent } from "../components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +32,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { cn } from "../components/ui/utils";
-import { listNotifications } from "@/lib/data/repository";
+import { listAssignments, listCourses, listNotifications } from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { toast } from "sonner";
@@ -43,9 +45,15 @@ export function RootLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const { session, logout, currentRole, canSwitchViews, switchActiveRole } = useAuth();
   const { data: notificationsData } = useAsyncData(() => listNotifications(), []);
+  const { data: coursesData } = useAsyncData(() => listCourses(), []);
+  const { data: assignmentsData } = useAsyncData(() => listAssignments(), []);
   const notifications = notificationsData ?? [];
+  const courses = coursesData ?? [];
+  const assignments = assignmentsData ?? [];
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   const isInstructorView = currentRole === "instructor";
@@ -61,6 +69,55 @@ export function RootLayout() {
   ];
 
   const navItems = isInstructorView ? instructorNavItems : studentNavItems;
+  const trimmedSearchQuery = searchQuery.trim();
+
+  const searchSuggestions = useMemo(() => {
+    if (!trimmedSearchQuery) {
+      return [];
+    }
+
+    const query = trimmedSearchQuery.toLowerCase();
+
+    const courseSuggestions = courses
+      .filter(
+        (course) =>
+          course.name.toLowerCase().includes(query) ||
+          course.code.toLowerCase().includes(query) ||
+          course.instructor.toLowerCase().includes(query)
+      )
+      .slice(0, 4)
+      .map((course) => ({
+        id: `course-${course.id}`,
+        type: "course" as const,
+        title: course.code,
+        subtitle: course.name,
+        path: isInstructorView ? `/instructor/course/${course.id}` : `/course/${course.id}`,
+      }));
+
+    const assignmentSuggestions = assignments
+      .filter(
+        (assignment) =>
+          assignment.title.toLowerCase().includes(query) ||
+          assignment.description.toLowerCase().includes(query)
+      )
+      .slice(0, 4)
+      .map((assignment) => ({
+        id: `assignment-${assignment.id}`,
+        type: "assignment" as const,
+        title: assignment.title,
+        subtitle:
+          courses.find((course) => course.id === assignment.courseId)?.code ?? "Assignment",
+        path: isInstructorView
+          ? `/instructor/course/${assignment.courseId}/assignment/${assignment.id}`
+          : `/course/${assignment.courseId}/assignment/${assignment.id}`,
+      }));
+
+    return [...courseSuggestions, ...assignmentSuggestions].slice(0, 6);
+  }, [assignments, courses, isInstructorView, trimmedSearchQuery]);
+
+  useEffect(() => {
+    setShowSearchSuggestions(false);
+  }, [location.pathname, location.search]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -77,6 +134,19 @@ export function RootLayout() {
     } finally {
       setIsLoggingOut(false);
     }
+  };
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedQuery = trimmedSearchQuery;
+    setShowSearchSuggestions(false);
+    navigate(
+      trimmedQuery
+        ? `${isInstructorView ? "/instructor/search" : "/search"}?q=${encodeURIComponent(trimmedQuery)}`
+        : isInstructorView
+          ? "/instructor/search"
+          : "/search"
+    );
   };
 
   return (
@@ -107,13 +177,73 @@ export function RootLayout() {
           </div>
 
           <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
+            <form className="relative w-full" onSubmit={handleSearchSubmit}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input 
                 placeholder="Search courses, assignments..." 
                 className="pl-10 bg-gray-50"
+                value={searchQuery}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setSearchQuery(nextValue);
+                  setShowSearchSuggestions(Boolean(nextValue.trim()));
+                }}
+                onFocus={() => {
+                  if (trimmedSearchQuery) {
+                    setShowSearchSuggestions(true);
+                  }
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => setShowSearchSuggestions(false), 120);
+                }}
               />
-            </div>
+              {showSearchSuggestions && searchSuggestions.length > 0 ? (
+                <Card className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 border shadow-lg">
+                  <CardContent className="p-2">
+                    <div className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Suggestions
+                    </div>
+                    <div className="space-y-1">
+                      {searchSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-50"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            setShowSearchSuggestions(false);
+                            setSearchQuery(suggestion.title);
+                            navigate(suggestion.path);
+                          }}
+                        >
+                          <div className="mt-0.5 text-gray-500">
+                            {suggestion.type === "course" ? (
+                              <BookOpen className="h-4 w-4" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-gray-900">
+                              {suggestion.title}
+                            </p>
+                            <p className="truncate text-xs text-gray-500">
+                              {suggestion.subtitle}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                      <button
+                        type="submit"
+                        className="w-full rounded-lg border-t px-3 py-2 text-left text-sm text-blue-600 transition-colors hover:bg-blue-50"
+                      >
+                        Search for "{trimmedSearchQuery}"
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </form>
           </div>
 
           <div className="flex items-center gap-3">

@@ -38,6 +38,10 @@ export function SubmissionTracking() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "submitted" | "missing" | "late">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [gradeFilter, setGradeFilter] = useState<"all" | "graded" | "ungraded">("all");
+  const [minScore, setMinScore] = useState("");
+  const [maxScore, setMaxScore] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const { data: course, loading: courseLoading } = useAsyncData(
@@ -111,7 +115,33 @@ export function SubmissionTracking() {
     if (filter === "submitted") return item.submission?.status === "submitted";
     if (filter === "missing") return !item.submission || item.submission.status === "missing";
     if (filter === "late") return item.submission?.status === "late";
-    
+
+    return true;
+  }).filter((item) => {
+    if (gradeFilter === "graded" && item.submission?.score == null) {
+      return false;
+    }
+
+    if (gradeFilter === "ungraded" && item.submission?.score != null) {
+      return false;
+    }
+
+    const score = item.submission?.score;
+    const parsedMinScore = minScore ? Number(minScore) : null;
+    const parsedMaxScore = maxScore ? Number(maxScore) : null;
+
+    if (parsedMinScore !== null && !Number.isNaN(parsedMinScore)) {
+      if (score == null || score < parsedMinScore) {
+        return false;
+      }
+    }
+
+    if (parsedMaxScore !== null && !Number.isNaN(parsedMaxScore)) {
+      if (score == null || score > parsedMaxScore) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -263,6 +293,58 @@ export function SubmissionTracking() {
               </TabsList>
             </Tabs>
           </div>
+          {showAdvancedFilters ? (
+            <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Grade status</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={gradeFilter === "all" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={gradeFilter === "graded" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("graded")}
+                  >
+                    Graded
+                  </Button>
+                  <Button
+                    variant={gradeFilter === "ungraded" ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setGradeFilter("ungraded")}
+                  >
+                    Ungraded
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Minimum score</p>
+                <Input
+                  type="number"
+                  min="0"
+                  max={assignment.points}
+                  value={minScore}
+                  onChange={(event) => setMinScore(event.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Maximum score</p>
+                <Input
+                  type="number"
+                  min="0"
+                  max={assignment.points}
+                  value={maxScore}
+                  onChange={(event) => setMaxScore(event.target.value)}
+                  placeholder={String(assignment.points)}
+                />
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -275,9 +357,13 @@ export function SubmissionTracking() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+            >
               <Filter className="h-4 w-4 mr-2" />
-              Advanced Filter
+              {showAdvancedFilters ? "Hide Filters" : "Advanced Filter"}
             </Button>
           </div>
         </CardHeader>

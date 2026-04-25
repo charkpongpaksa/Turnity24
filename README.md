@@ -44,37 +44,126 @@ The frontend in this repo already assumes that role mapping.
 
 ## Project structure
 
-```text
-src/
-  app/
-    components/
-    layouts/
-    pages/
-    routes.tsx
-  features/
-  auth/
-      AuthProvider.tsx
-      ProtectedRoute.tsx
-      LoginPage.tsx
-      auth.service.ts
-      auth.storage.ts
-      auth.types.ts
-      auth.utils.ts
-  lib/
-    apiClient.ts
-    contracts/
-    apiEndpoints.ts
-    config/
-    data/
-    hooks/
-    mocks/
-    types/
-  test/
-    setup.ts
-backend/
-  template.yaml
-  functions/
-  shared/
+```
+/
+├── .env.example                 # Environment variables template
+├── .env.local                   # Local environment variables
+├── .gitignore                   # Git ignore rules
+├── ATTRIBUTIONS.md              # Attributions for assets
+├── README.md                    # This file
+├── index.html                   # Main HTML entry point
+├── package.json                 # Node.js dependencies and scripts
+├── package-lock.json            # Lockfile for dependencies
+├── postcss.config.mjs           # PostCSS configuration
+├── tsconfig.json                # TypeScript configuration
+├── vite.config.ts               # Vite build configuration
+├── backend/                     # AWS SAM backend scaffold
+│   ├── env.json.example         # Backend environment template
+│   ├── README.md                # Backend documentation
+│   ├── samconfig.example.toml   # SAM deployment config
+│   ├── template.yaml            # SAM infrastructure definition
+│   ├── events/                  # Test event files
+│   │   ├── auth-login.json
+│   │   └── courses-create.json
+│   ├── functions/               # Lambda function handlers
+│   │   ├── auth-login/
+│   │   │   └── index.js
+│   │   ├── course-detail/
+│   │   │   └── index.js
+│   │   ├── course-students/
+│   │   │   └── index.js
+│   │   ├── courses/
+│   │   │   ├── create/
+│   │   │   ├── detail/
+│   │   │   ├── list/
+│   │   │   └── students/
+│   │   ├── courses-create/
+│   │   │   └── index.js
+│   │   └── courses-list/
+│   │       └── index.js
+│   └── shared/                  # Shared utilities for Lambda
+│       ├── auth.js
+│       ├── course-store.js
+│       ├── http.js
+│       └── mock-data.js
+├── dist/                        # Build output (generated)
+├── docs/                        # Documentation
+│   ├── BACKEND_API_CONTRACT.md
+│   └── LEARNER_LAB_SAM_DEPLOY.md
+├── guidelines/                  # Project guidelines
+│   └── Guidelines.md
+├── node_modules/                # Dependencies (generated)
+└── src/                         # Frontend source code
+    ├── main.tsx                 # Application entry point
+    ├── app/                     # Main application code
+    │   ├── App.tsx              # Root component
+    │   ├── routes.tsx           # Route definitions
+    │   ├── components/          # Reusable UI components
+    │   │   ├── PageBackButton.tsx
+    │   │   ├── figma/           # Figma-related components
+    │   │   │   └── ImageWithFallback.tsx
+    │   │   ├── navigation/      # Navigation components
+    │   │   └── ui/              # UI library components
+    │   ├── layouts/             # Layout components
+    │   │   └── RootLayout.tsx
+    │   └── pages/               # Page components
+    │       ├── AllCourses.tsx
+    │       ├── AssignmentDetail.tsx
+    │       ├── AssignmentSubmission.tsx
+    │       ├── ClassroomPage.tsx
+    │       ├── InstructorAssignmentDetail.tsx
+    │       ├── InstructorDashboard.tsx
+    │       ├── NotFound.tsx
+    │       ├── NotificationsPage.tsx
+    │       ├── SearchResultsPage.tsx
+    │       ├── StudentDashboard.tsx
+    │       ├── SubmissionTracking.tsx
+    │       ├── UpcomingDeadlinesPage.tsx
+    │       ├── assignments/      # Assignment-related pages
+    │       ├── courses/          # Course-related pages
+    │       ├── dashboard/        # Dashboard pages
+    │       └── system/           # System pages
+    ├── features/                 # Feature-specific code
+    │   └── auth/                 # Authentication feature
+    │       ├── auth.service.test.ts
+    │       ├── auth.service.ts
+    │       ├── auth.storage.ts
+    │       ├── auth.types.ts
+    │       ├── auth.utils.test.ts
+    │       ├── auth.utils.ts
+    │       ├── AuthProvider.tsx
+    │       ├── HomeRedirect.tsx
+    │       ├── LoginPage.tsx
+    │       └── ProtectedRoute.tsx
+    ├── lib/                      # Shared libraries and utilities
+    │   ├── apiClient.ts
+    │   ├── apiEndpoints.test.ts
+    │   ├── apiEndpoints.ts
+    │   ├── notifications.test.ts
+    │   ├── notifications.ts
+    │   ├── config/
+    │   │   └── env.ts
+    │   ├── contracts/
+    │   │   └── api.ts
+    │   ├── data/
+    │   │   ├── mockRepository.test.ts
+    │   │   ├── mockRepository.ts
+    │   │   └── repository.ts
+    │   ├── hooks/
+    │   │   └── useAsyncData.ts
+    │   ├── mocks/
+    │   │   └── mockData.ts
+    │   └── types/
+    │       └── models.ts
+    ├── styles/                   # Stylesheets
+    │   ├── fonts.css
+    │   ├── index.css
+    │   ├── tailwind.css
+    │   └── theme.css
+    ├── test/                     # Test configuration
+    │   └── setup.ts
+    └── types/                    # TypeScript type definitions
+        └── react-dom-client.d.ts
 ```
 
 ## Key files
