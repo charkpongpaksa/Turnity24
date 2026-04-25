@@ -87,10 +87,16 @@ npm run local
 เราใช้ AWS SAM ในการจัดการ Infrastructure
 
 ### 1. การตั้งค่า Credentials (สำหรับ Learner Lab)
-ก๊อปปี้ `AWS Access Key`, `AWS Secret Access Key`, และ `AWS Session Token` จากหน้า Vocareum แล้วรัน:
+ก๊อปปี้ข้อมูลจากหน้า Vocareum (เมนู AWS Details > CLI Credentials) แล้วตั้งค่า Environment Variables ใน Terminal:
 ```bash
-aws configure
+export AWS_ACCESS_KEY_ID="YOUR_KEY"
+export AWS_SECRET_ACCESS_KEY="YOUR_SECRET"
+export AWS_SESSION_TOKEN="YOUR_SESSION_TOKEN"
+export AWS_DEFAULT_REGION="us-east-1"
 ```
+
+> **สำคัญมาก**: ในไฟล์ `backend/template.yaml` บรรทัดที่มี `Role: arn:aws:iam::028800569612:role/LabRole` คุณจะต้องเปลี่ยนตัวเลข **028800569612** ให้เป็น **AWS Account ID** ของคุณเอง (ดูได้บรรทัดที่มีข้อความ `export AWS_SESSION_TOKEN` หรือดูใน Console) เพื่อให้มีสิทธิ์ในการสร้างทรัพยากร
+
 
 ### 2. การ Deploy Backend
 รันในโฟลเดอร์ `backend`:
@@ -119,8 +125,8 @@ npm run deploy
 - **การตั้งค่า**: `VITE_DATA_SOURCE=api`
 - **การเก็บข้อมูล**: ข้อมูลถูกเก็บไว้ใน **AWS DynamoDB** จริงๆ ข้อมูลจะเชื่อมกันหมดทุกเครื่อง
 - **บัญชีสำหรับทดสอบ**:
-  - ใช้ Username/Password ของ TU หรือข้อมูลที่คุณเพิ่มเข้าไปในตาราง DynamoDB
-  - สำหรับอาจารย์: User: `teacher1` / Pass: `1234`
+  - 👨‍🏫 **Teacher**: User: `teacher1` (ข้ามการต่อ TU API เสมอเพื่อความสะดวก)
+  - 🎓 **Student**: User: `student1` (ข้ามการต่อ TU API) หรือใช้ Username/Password ของ TU จริง (ถ้าตั้งค่า Key แล้ว)
 - **เหมาะสำหรับ**: การทดสอบ End-to-End, การจัดการข้อมูลจริง และการ Deploy ขึ้นใช้งานจริง
 
 ---

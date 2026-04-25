@@ -1,6 +1,7 @@
-function isInstructorUsername(username) {
+function isMockUsername(username) {
   const normalized = String(username).trim().toLowerCase();
   return (
+    normalized.startsWith("student") ||
     normalized.startsWith("emp") ||
     normalized.startsWith("teacher") ||
     normalized.startsWith("lec") ||
@@ -9,7 +10,14 @@ function isInstructorUsername(username) {
 }
 
 export function createMockTuProfile(username) {
-  if (isInstructorUsername(username)) {
+  const normalized = String(username).trim().toLowerCase();
+  const isInstructor = 
+    normalized.startsWith("emp") ||
+    normalized.startsWith("teacher") ||
+    normalized.startsWith("lec") ||
+    normalized.includes("staff");
+
+  if (isInstructor) {
     return {
       status: true,
       message: "Success",
@@ -48,8 +56,8 @@ export async function verifyWithTuApi({ username, password }) {
   const tuApiKey = process.env.TU_API_APPLICATION_KEY;
   const baseUrl = process.env.TU_API_BASE_URL;
 
-  // Instructor จะ mock เสมอ เพราะเราไม่สามารถใช้ข้อมูลจากอาจารย์ได้ตอนนี้
-  if (isInstructorUsername(username)) {
+  // กรณีเป็น Username สำหรับทดสอบ (Mock)
+  if (isMockUsername(username)) {
     return createMockTuProfile(username);
   }
 
