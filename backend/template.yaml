@@ -189,7 +189,7 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /courses/{courseId}/assignments
             Method: POST
-DiscussionsListFunction:
+  DiscussionsListFunction:
   Type: AWS::Serverless::Function
   Properties:
     Handler: functions/discussions-list/index.handler
@@ -202,7 +202,7 @@ DiscussionsListFunction:
           Path: /discussions
           Method: GET
 
-DiscussionsCreateFunction:
+  DiscussionsCreateFunction:
   Type: AWS::Serverless::Function
   Properties:
     Handler: functions/discussions-create/index.handler
@@ -216,7 +216,7 @@ DiscussionsCreateFunction:
           Path: /discussions
           Method: POST
 
-DiscussionsReactFunction:
+  DiscussionsReactFunction:
   Type: AWS::Serverless::Function
   Properties:
     Handler: functions/discussions-react/index.handler
@@ -231,7 +231,7 @@ DiscussionsReactFunction:
           Method: POST
 
 
-DiscussionsCommentFunction:
+  DiscussionsCommentFunction:
   Type: AWS::Serverless::Function
   Properties:
     Handler: functions/discussions-comment/index.handler
