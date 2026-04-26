@@ -87,3 +87,9 @@
 | `COURSE#<courseId>` | `DISC#<discussionId>` | หัวข้อกระทู้ถาม-ตอบ |
 | `DISC#<discussionId>` | `COMMENT#<commentId>` | ความคิดเห็นในกระทู้ |
 | `STUDENT#<studentId>`| `NOTIFY#<timestamp>` | ข้อความแจ้งเตือนต่างๆ |
+
+
+## 7. SNS Requirement(ข้อมูลที่ทีม SNS ต้องการ)
+Database
+- Student: Student_Email
+- Instructor: Instauctor_Email
