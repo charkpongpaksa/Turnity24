@@ -1,0 +1,166 @@
+SNS_Function: Course-announcement
+CS251
+Step 1 สร้าง SNS Topic ต่อ 1 courses แล้วนำ Topic ARN
+ไปที่ Amazon SNS → Create Topic
+ตั้งค่า Type: Standard
+    Name: course-cloud-computing
+กด Create
+จะได้ค่าแบบนี้มา:
+arn:aws:sns:ap-southeast-1:xxxxxxxxxxxx:topic-name
+Copy Topic ARN เก็บไว้
+
+Step 2 เพิ่มนักศึกษาเข้า course
+เข้า Topic ที่สร้างไว้ กด Create Subscription ใส่ Protocol: Email 
+แล้วใส่ Endpoint: student1@dome.tu.ac.th กด Create
+
+step 3 ให้นักศึกษากด Confirm Email โดยจะมี Email ส่งไปให้กด confirm subsciption จากนั้นจะทำการ Test โดยใช้ Publish message
+ใส่ Subject: Course Annoucement
+Message: “มีการแจ้งเตือนใหม่ในรายวิชา Cloud Computing 
+อาจารย์เพิ่มนักศึกษาเข้าคอร์ส”
+กด Publish message จากนั้นจะมี message เข้าใน email ของนักศึกษา
+
+step4 สร้าง Lambda Function
+
+Author from scratch
+Function name: notification-lambda
+Runtime: Python 3.14
+
+กด Create function
+
+Step 5  ใส่โค้ด Lambda
+
+ลบโค้ดเดิม แล้วใส่อันนี้:
+
+import boto3
+import os
+
+sns = boto3.client("sns")
+
+TOPIC_ARN = os.environ["TOPIC_ARN"]
+
+def lambda_handler(event, context):
+    alert_type = event.get("type", "assignment")
+
+    if alert_type == "assignment":
+        subject = "Assignment Alert"
+        message = f"""
+แจ้งเตือน Assignment
+
+วิชา: {event.get("course", "-")}
+งาน: {event.get("title", "-")}
+Deadline: {event.get("deadline", "-")}
+
+กรุณาตรวจสอบและส่งงานก่อนกำหนด
+"""
+    elif alert_type == "course":
+        subject = "Course Alert"
+        message = f"""
+แจ้งเตือน Course
+
+วิชา: {event.get("course", "-")}
+หัวข้อ: {event.get("title", "-")}
+รายละเอียด: {event.get("detail", "-")}
+
+กรุณาเข้าไปตรวจสอบข้อมูลรายวิชา
+"""
+    else:
+        subject = "Notification Alert"
+        message = "มีการแจ้งเตือนใหม่"
+
+    response = sns.publish(
+        TopicArn=TOPIC_ARN,
+        Subject=subject,
+        Message=message
+    )
+
+    return {
+        "statusCode": 200,
+        "message": "sent",
+        "type": alert_type,
+        "messageId": response["MessageId"]
+    }
+
+กด Deploy
+
+Step 6 ใส่ Environment Variable
+
+ไปที่ Lambda → Configuration → Environment variables → Edit
+
+เพิ่ม:
+
+Key: TOPIC_ARN
+Value: SNS Topic ARN ; ใส่ Topic ARN ที่เคย Copy ไว้
+
+กด Save
+Step 7: Test Assignment
+	ไปที่ Lambda → Test 
+ใช้ payload นี้: 
+{
+  "type": "assignment",
+  "course": "Cloud Computing",
+  "title": "AWS SNS Assignment",
+  "deadline": "2026-04-30 23:59"
+}
+กด Test (ถ้าสำเร็จ email จะเข้า)
+
+Step 8 Test แบบ Course
+ไปที่ Lambda -> Test
+
+เพิ่ม Test event เป็น:
+
+{
+  "type": "course",
+  "course": "Cloud Computing",
+  "title": "New Course Material",
+  "detail": "อาจารย์เพิ่มเอกสารบทที่ 5"
+}
+
+กด Test
+
+ถ้าสำเร็จ Email จะเข้า
+
+Step 9: สร้าง EventBridge Schedule สำหรับ Assignment
+	ไปที่ Amazon EventBridge → Scheduler → Create schedule 
+	ตั้งชื่อ: assignment-alert-schedule
+เลือก: Recurring schedule
+          Rate-based schedule
+          rate(n minutes)
+Target เลือก: AWS Lambda Invoke
+                     Lambda: notification-lambda
+Payload ใส่:
+{
+ "type": "assignment",
+ "course": "Cloud Computing",
+ "title": "AWS SNS Assignment",
+ "deadline": "2026-04-30 23:59"
+}
+กด Create schedule
+Step 10 สร้าง EventBridge Schedule สำหรับ Course Announcement
+
+ไปที่ AWS Console → Amazon EventBridge → Scheduler → Create schedule
+
+ตั้งชื่อ:
+
+course-alert-schedule
+
+เลือก:
+
+Recurring schedule
+Rate-based schedule
+rate(n minutes)
+ตรง Target เลือก:
+
+AWS Lambda Invoke
+
+เลือก Lambda:notification-lambda
+
+ตรง Payload ใส่:
+
+{
+  "type": "course",
+  "course": "Cloud Computing",
+  "title": "New Course Material",
+  "detail": "อาจารย์เพิ่มเอกสารบทที่ 5"
+}
+
+กด Create schedule
