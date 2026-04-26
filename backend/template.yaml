@@ -189,10 +189,11 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /courses/{courseId}/assignments
             Method: POST
+
   DiscussionsListFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: functions/discussions-list/index.handler
+      Handler: functions/discussion-list/index.handler
       Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
       Events:
@@ -205,7 +206,7 @@ Resources:
   DiscussionsCreateFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: functions/discussions-create/index.handler
+      Handler: functions/discussion-create/index.handler
       Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
       Events:
@@ -219,7 +220,7 @@ Resources:
   DiscussionsReactFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: functions/discussions-react/index.handler
+      Handler: functions/discussion-react/index.handler
       Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
       Events:
@@ -234,7 +235,7 @@ Resources:
   DiscussionsCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: functions/discussions-comment/index.handler
+      Handler: functions/discussion-comment/index.handler
       Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
       Events:
