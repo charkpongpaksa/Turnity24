@@ -216,6 +216,32 @@ Resources:
             Path: /assignments/{assignmentId}/submit
             Method: POST
 
+  SubmissionsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/submissions-list/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        SubmissionList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /assignments/{assignmentId}/submissions
+            Method: GET
+
+  SubmissionsGradeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/submissions-grade/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        SubmissionGrade:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /assignments/{assignmentId}/submissions/{studentId}/grade
+            Method: PUT
+
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL
