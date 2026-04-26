@@ -190,60 +190,60 @@ Resources:
             Path: /courses/{courseId}/assignments
             Method: POST
   DiscussionsListFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Handler: functions/discussions-list/index.handler
-    Runtime: nodejs20.x
-    Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
-    Events:
-      Api:
-        Type: HttpApi
-        Properties:
-          Path: /discussions
-          Method: GET
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussions-list/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /discussions
+            Method: GET
 
   DiscussionsCreateFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Handler: functions/discussions-create/index.handler
-    Runtime: nodejs20.x
-    Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
-    Events:
-      DiscussionsCreate:
-        Type: HttpApi
-        Properties:
-          ApiId: !Ref TurnityApi
-          Path: /discussions
-          Method: POST
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussions-create/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
+      Events:
+        DiscussionsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions
+            Method: POST
 
   DiscussionsReactFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Handler: functions/discussions-react/index.handler
-    Runtime: nodejs20.x
-    Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
-    Events:
-      DiscussionsReact:
-        Type: HttpApi
-        Properties:
-          ApiId: !Ref TurnityApi
-          Path: /discussions/react
-          Method: POST
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussions-react/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
+      Events:
+        DiscussionsReact:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/react
+            Method: POST
 
 
   DiscussionsCommentFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Handler: functions/discussions-comment/index.handler
-    Runtime: nodejs20.x
-    Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
-    Events:
-      DiscussionsComment:
-        Type: HttpApi
-        Properties:
-          ApiId: !Ref TurnityApi
-          Path: /discussions/comment
-          Method: POST
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussions-comment/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::779615015899:role/LabRole"
+      Events:
+        DiscussionsComment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/comment
+            Method: POST
 
 Outputs:
   ApiBaseUrl:
