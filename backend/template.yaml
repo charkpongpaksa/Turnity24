@@ -189,15 +189,6 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /courses/{courseId}/assignments
             Method: POST
-
-Outputs:
-  ApiBaseUrl:
-    Description: HTTP API base URL
-    Value: !Sub https://${TurnityApi}.execute-api.${AWS::Region}.amazonaws.com
-  TableName:
-    Description: DynamoDB table name
-    Value: !Ref TurnityTable
-
 DiscussionsListFunction:
   Type: AWS::Serverless::Function
   Properties:
@@ -253,3 +244,11 @@ DiscussionsCommentFunction:
           ApiId: !Ref TurnityApi
           Path: /discussions/comment
           Method: POST
+
+Outputs:
+  ApiBaseUrl:
+    Description: HTTP API base URL
+    Value: !Sub https://${TurnityApi}.execute-api.${AWS::Region}.amazonaws.com
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref TurnityTable
