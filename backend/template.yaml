@@ -65,8 +65,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/auth-login/index.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AuthLogin:
           Type: HttpApi
@@ -79,10 +78,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-list/index.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TurnityTable
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CoursesList:
           Type: HttpApi
@@ -95,10 +91,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-create/index.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TurnityTable
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CoursesCreate:
           Type: HttpApi
@@ -111,10 +104,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-detail/index.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TurnityTable
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CourseDetail:
           Type: HttpApi
@@ -127,10 +117,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-students/index.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TurnityTable
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         CourseStudentsList:
           Type: HttpApi
@@ -150,6 +137,58 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /courses/{courseId}/students/{studentId}
             Method: DELETE
+
+  AnnouncementsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/announcements-list/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AnnouncementsList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/announcements
+            Method: GET
+
+  AnnouncementsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/announcements-create/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AnnouncementsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/announcements
+            Method: POST
+
+  AssignmentsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-list/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AssignmentsList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/assignments
+            Method: GET
+
+  AssignmentsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-create/index.handler
+      Role: arn:aws:iam::028800569612:role/LabRole
+      Events:
+        AssignmentsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/assignments
+            Method: POST
 
 Outputs:
   ApiBaseUrl:

@@ -19,25 +19,50 @@ import type {
   SubmissionRecord,
 } from "@/lib/types/models";
 
-let courseState = structuredClone(mockCourses) as Course[];
-let assignmentState = structuredClone(mockAssignments) as Assignment[];
-let announcementState = structuredClone(mockAnnouncements) as Announcement[];
-let discussionState = structuredClone(mockDiscussions) as Discussion[];
+const STORAGE_KEYS = {
+  COURSES: "turnity_mock_courses",
+  ASSIGNMENTS: "turnity_mock_assignments",
+  ANNOUNCEMENTS: "turnity_mock_announcements",
+  DISCUSSIONS: "turnity_mock_discussions",
+  ENROLLMENTS: "turnity_mock_enrollments",
+};
+
+function loadFromStorage<T>(key: string, defaultValue: T): T {
+  if (typeof window === "undefined") return defaultValue;
+  const stored = localStorage.getItem(key);
+  return stored ? JSON.parse(stored) : defaultValue;
+}
+
+function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+let courseState = loadFromStorage(STORAGE_KEYS.COURSES, mockCourses) as Course[];
+let assignmentState = loadFromStorage(STORAGE_KEYS.ASSIGNMENTS, mockAssignments) as Assignment[];
+let announcementState = loadFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, mockAnnouncements) as Announcement[];
+let discussionState = loadFromStorage(STORAGE_KEYS.DISCUSSIONS, mockDiscussions) as Discussion[];
 const studentState = structuredClone(mockStudents) as Student[];
 
-const defaultEnrollments = new Map<string, string[]>([
+const defaultEnrollments = [
   ["1", ["1", "2", "3", "4"]],
   ["2", ["2", "3", "5", "6"]],
   ["3", ["1", "4", "5"]],
   ["4", ["2", "5", "6"]],
-]);
+];
 
-const courseEnrollments = new Map(
-  Array.from(defaultEnrollments.entries(), ([courseId, studentIds]) => [
-    courseId,
-    [...studentIds],
-  ])
+const storedEnrollments = loadFromStorage(STORAGE_KEYS.ENROLLMENTS, defaultEnrollments);
+const courseEnrollments = new Map<string, string[]>(
+  storedEnrollments.map(([courseId, studentIds]) => [courseId, [...studentIds]]) as [string, string[]][]
 );
+
+function persistAll() {
+  saveToStorage(STORAGE_KEYS.COURSES, courseState);
+  saveToStorage(STORAGE_KEYS.ASSIGNMENTS, assignmentState);
+  saveToStorage(STORAGE_KEYS.ANNOUNCEMENTS, announcementState);
+  saveToStorage(STORAGE_KEYS.DISCUSSIONS, discussionState);
+  saveToStorage(STORAGE_KEYS.ENROLLMENTS, Array.from(courseEnrollments.entries()));
+}
 
 const currentUser: CurrentUser = {
   id: "user-demo",
@@ -100,6 +125,7 @@ export async function createCourse(input: {
 
   courseState = [createdCourse, ...courseState];
   courseEnrollments.set(createdCourse.id, []);
+  persistAll();
   return clone(createdCourse);
 }
 
@@ -114,6 +140,7 @@ export async function updateCourse(
   courseState = courseState.map((course) =>
     course.id === courseId ? updated : course
   );
+  persistAll();
   return clone(updated);
 }
 
@@ -143,6 +170,7 @@ export async function deleteAssignment(
   );
   const deleted = nextAssignments.length !== assignmentState.length;
   assignmentState = nextAssignments;
+  persistAll();
   return deleted;
 }
 
@@ -171,6 +199,7 @@ export async function createAnnouncement(
   };
 
   announcementState = [created, ...announcementState];
+  persistAll();
   return clone(created);
 }
 
@@ -189,6 +218,7 @@ export async function updateAnnouncement(
   announcementState = announcementState.map((announcement) =>
     announcement.id === announcementId ? updated : announcement
   );
+  persistAll();
   return clone(updated);
 }
 
@@ -228,6 +258,7 @@ export async function createDiscussion(
   };
 
   discussionState = [created, ...discussionState];
+  persistAll();
   return clone(created);
 }
 
@@ -245,6 +276,7 @@ export async function updateDiscussion(
   discussionState = discussionState.map((discussion) =>
     discussion.id === discussionId ? updated : discussion
   );
+  persistAll();
   return clone(updated);
 }
 
@@ -258,6 +290,7 @@ export async function deleteDiscussion(
   );
   const deleted = nextState.length !== discussionState.length;
   discussionState = nextState;
+  persistAll();
   return deleted;
 }
 
@@ -289,6 +322,7 @@ export async function addDiscussionComment(
   discussionState = discussionState.map((discussion) =>
     discussion.id === discussionId ? updated : discussion
   );
+  persistAll();
   return clone(updated);
 }
 
@@ -317,6 +351,7 @@ export async function toggleDiscussionLike(
   discussionState = discussionState.map((discussion) =>
     discussion.id === discussionId ? updated : discussion
   );
+  persistAll();
   return clone(updated);
 }
 
@@ -344,6 +379,7 @@ export async function addStudentToCourse(
   if (!studentIds.includes(studentId)) {
     courseEnrollments.set(courseId, [...studentIds, studentId]);
     syncCourseStudentCount(courseId);
+    persistAll();
   }
 
   return listCourseStudents(courseId);
@@ -359,6 +395,7 @@ export async function removeStudentFromCourse(
     studentIds.filter((id) => id !== studentId)
   );
   syncCourseStudentCount(courseId);
+  persistAll();
   return listCourseStudents(courseId);
 }
 

@@ -1,317 +1,178 @@
-# Turnity Frontend
+# Turnity (Thailand) - Project Setup & Developer Guide 🚀
 
-Turnity is a Vite + React + TypeScript frontend for assignment tracking, classroom discussion, and deadline notifications.
+Turnity คือแอปพลิเคชันจัดการการเรียนการสอน (Learning Management System) ที่ออกแบบมาเพื่อความเร็วและความง่ายในการใช้งาน พัฒนาด้วย **Vite + React** สำหรับ Frontend และ **AWS SAM (Serverless)** สำหรับ Backend
 
-## Current direction
+---
 
-This frontend is now structured so it can run in two modes:
+## 🛠 Tech Stack
 
-- `mock` mode for UI development without a backend
-- `api` mode for connecting to your AWS/API Gateway backend later
+- **Frontend**: Vite, React, Tailwind CSS, Radix UI, Lucide Icons
+- **Backend**: AWS Lambda (Node.js 20.x), AWS Gateway (HTTP API), DynamoDB (Single Table Design)
+- **Deployment**: AWS SAM CLI
 
-The app also now has a real auth shell:
+---
 
-- login page
-- auth session provider
-- protected routes
-- role-based routing for `student` and `instructor`
+## 📋 สิ่งที่ต้องติดตั้งก่อนเริ่ม (Prerequisites)
 
-## Important TU API note
+### 1. Node.js & NPM
+- แนะนำให้ใช้ **Node.js v20.x** (LTS)
+- [ดาวน์โหลด Node.js](https://nodejs.org/)
 
-Do not call the TU API directly from the browser.
+### 2. AWS CLI
+- เพื่อจัดการ Credentials และการเชื่อมต่อกับ AWS
+- **Mac**: `brew install awscli`
+- **Windows**: [ดาวน์โหลดตัวติดตั้ง MSI](https://aws.amazon.com/cli/)
 
-The TU API requires an `Application-Key`, and that key would be exposed if you put it in frontend code or in `VITE_` environment variables.
+### 3. AWS SAM CLI
+- สำหรับ Build และ Deploy Backend
+- **Mac**: `brew tap aws/tap && brew install aws-sam-cli`
+- **Windows**: [ดาวน์โหลดตัวติดตั้ง MSI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 
-Use this flow instead:
+---
 
-```text
-Frontend -> Your backend /auth/login -> TU API
-```
+## 🚀 ขั้นตอนการตั้งค่าโปรเจกต์ (Project Setup)
 
-Recommended backend login flow:
+### 1. การ Clone และติดตั้ง Dependencies
 
-1. Frontend sends `username` and `password` to your own backend
-2. Backend calls:
-   - `POST https://restapi.tu.ac.th/api/v1/auth/Ad/verify`
-   - or `POST https://restapi.tu.ac.th/api/v1/auth/Ad/verify2`
-3. Backend reads TU response
-4. Backend maps:
-   - `type: student` -> app role `student`
-   - `type: employee` -> app role `instructor`
-5. Backend returns your own app session/token to the frontend
-
-The frontend in this repo already assumes that role mapping.
-
-## Project structure
-
-```
-/
-├── .env.example                 # Environment variables template
-├── .env.local                   # Local environment variables
-├── .gitignore                   # Git ignore rules
-├── ATTRIBUTIONS.md              # Attributions for assets
-├── README.md                    # This file
-├── index.html                   # Main HTML entry point
-├── package.json                 # Node.js dependencies and scripts
-├── package-lock.json            # Lockfile for dependencies
-├── postcss.config.mjs           # PostCSS configuration
-├── tsconfig.json                # TypeScript configuration
-├── vite.config.ts               # Vite build configuration
-├── backend/                     # AWS SAM backend scaffold
-│   ├── env.json.example         # Backend environment template
-│   ├── README.md                # Backend documentation
-│   ├── samconfig.example.toml   # SAM deployment config
-│   ├── template.yaml            # SAM infrastructure definition
-│   ├── events/                  # Test event files
-│   │   ├── auth-login.json
-│   │   └── courses-create.json
-│   ├── functions/               # Lambda function handlers
-│   │   ├── auth-login/
-│   │   │   └── index.js
-│   │   ├── course-detail/
-│   │   │   └── index.js
-│   │   ├── course-students/
-│   │   │   └── index.js
-│   │   ├── courses/
-│   │   │   ├── create/
-│   │   │   ├── detail/
-│   │   │   ├── list/
-│   │   │   └── students/
-│   │   ├── courses-create/
-│   │   │   └── index.js
-│   │   └── courses-list/
-│   │       └── index.js
-│   └── shared/                  # Shared utilities for Lambda
-│       ├── auth.js
-│       ├── course-store.js
-│       ├── http.js
-│       └── mock-data.js
-├── dist/                        # Build output (generated)
-├── docs/                        # Documentation
-│   ├── BACKEND_API_CONTRACT.md
-│   └── LEARNER_LAB_SAM_DEPLOY.md
-├── guidelines/                  # Project guidelines
-│   └── Guidelines.md
-├── node_modules/                # Dependencies (generated)
-└── src/                         # Frontend source code
-    ├── main.tsx                 # Application entry point
-    ├── app/                     # Main application code
-    │   ├── App.tsx              # Root component
-    │   ├── routes.tsx           # Route definitions
-    │   ├── components/          # Reusable UI components
-    │   │   ├── PageBackButton.tsx
-    │   │   ├── figma/           # Figma-related components
-    │   │   │   └── ImageWithFallback.tsx
-    │   │   ├── navigation/      # Navigation components
-    │   │   └── ui/              # UI library components
-    │   ├── layouts/             # Layout components
-    │   │   └── RootLayout.tsx
-    │   └── pages/               # Page components
-    │       ├── AllCourses.tsx
-    │       ├── AssignmentDetail.tsx
-    │       ├── AssignmentSubmission.tsx
-    │       ├── ClassroomPage.tsx
-    │       ├── InstructorAssignmentDetail.tsx
-    │       ├── InstructorDashboard.tsx
-    │       ├── NotFound.tsx
-    │       ├── NotificationsPage.tsx
-    │       ├── SearchResultsPage.tsx
-    │       ├── StudentDashboard.tsx
-    │       ├── SubmissionTracking.tsx
-    │       ├── UpcomingDeadlinesPage.tsx
-    │       ├── assignments/      # Assignment-related pages
-    │       ├── courses/          # Course-related pages
-    │       ├── dashboard/        # Dashboard pages
-    │       └── system/           # System pages
-    ├── features/                 # Feature-specific code
-    │   └── auth/                 # Authentication feature
-    │       ├── auth.service.test.ts
-    │       ├── auth.service.ts
-    │       ├── auth.storage.ts
-    │       ├── auth.types.ts
-    │       ├── auth.utils.test.ts
-    │       ├── auth.utils.ts
-    │       ├── AuthProvider.tsx
-    │       ├── HomeRedirect.tsx
-    │       ├── LoginPage.tsx
-    │       └── ProtectedRoute.tsx
-    ├── lib/                      # Shared libraries and utilities
-    │   ├── apiClient.ts
-    │   ├── apiEndpoints.test.ts
-    │   ├── apiEndpoints.ts
-    │   ├── notifications.test.ts
-    │   ├── notifications.ts
-    │   ├── config/
-    │   │   └── env.ts
-    │   ├── contracts/
-    │   │   └── api.ts
-    │   ├── data/
-    │   │   ├── mockRepository.test.ts
-    │   │   ├── mockRepository.ts
-    │   │   └── repository.ts
-    │   ├── hooks/
-    │   │   └── useAsyncData.ts
-    │   ├── mocks/
-    │   │   └── mockData.ts
-    │   └── types/
-    │       └── models.ts
-    ├── styles/                   # Stylesheets
-    │   ├── fonts.css
-    │   ├── index.css
-    │   ├── tailwind.css
-    │   └── theme.css
-    ├── test/                     # Test configuration
-    │   └── setup.ts
-    └── types/                    # TypeScript type definitions
-        └── react-dom-client.d.ts
-```
-
-## Key files
-
-- [`src/features/auth/LoginPage.tsx`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/LoginPage.tsx)
-  Handles frontend sign-in UI
-- [`src/features/auth/AuthProvider.tsx`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/AuthProvider.tsx)
-  Stores and restores the authenticated session
-- [`src/features/auth/auth.service.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/auth.service.ts)
-  Calls backend auth in `api` mode and mock auth in `mock` mode
-- [`src/features/auth/auth.utils.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/auth.utils.ts)
-  Maps TU account types to app roles
-- [`src/lib/data/repository.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/data/repository.ts)
-  Central data access layer for the app
-- [`src/lib/contracts/api.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/contracts/api.ts)
-  Shared request and response types for the backend contract
-- [`src/lib/hooks/useAsyncData.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/hooks/useAsyncData.ts)
-  Shared async loading hook used across pages and layouts
-- [`src/lib/mocks/mockData.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/mocks/mockData.ts)
-  Centralized mock dataset for local UI development
-- [`src/lib/config/env.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/config/env.ts)
-  Centralized environment configuration
-- [`backend/template.yaml`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend/template.yaml)
-  AWS SAM infrastructure definition for the backend scaffold
-- [`backend/README.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend/README.md)
-  Explains how the backend scaffold maps local files to AWS Lambda/API Gateway
-
-## Run locally
-
-1. Install dependencies
+เปิด Terminal หรือ PowerShell แล้วรันคำสั่ง:
 
 ```bash
+# Clone โปรเจกต์
+git clone <your-repo-url>
+cd Turnity_NEW
+
+# ติดตั้ง Dependencies สำหรับ Frontend
 npm install
+
+# ติดตั้ง Dependencies สำหรับ Backend
+cd backend
+npm install
+cd ..
 ```
 
-2. Copy environment values
+### 2. การตั้งค่า Environment Variables (.env)
+
+สร้างไฟล์ชื่อ `.env.local` ไว้ที่โฟลเดอร์หลัก (Root) โดยก๊อปปี้จาก `.env.example`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Start development mode
+**สิ่งที่ต้องแก้ไขใน `.env.local`:**
+- `VITE_DATA_SOURCE`: ตั้งเป็น `api` เพื่อเชื่อมต่อกับ AWS จริง หรือ `mock` เพื่อทดสอบภายในเครื่อง
+- `VITE_API_BASE_URL`: ใส่ URL ของ API Gateway ที่ได้จากการ Deploy (เช่น `https://xxxx.execute-api.us-east-1.amazonaws.com`)
 
+---
+
+## 💻 การรันโปรเจกต์ (Local Development)
+
+### Frontend (Vite)
+รันที่โฟลเดอร์นอกสุด:
 ```bash
 npm run dev
 ```
+เปิดบราวเซอร์ไปที่ `http://localhost:5173`
 
-## Mock login
-
-When `VITE_DATA_SOURCE=mock`, the login screen uses mock auth logic:
-
-- usernames like `student01` behave as students
-- usernames like `teacher01`, `emp01`, or `staff01` behave as instructors
-
-Any password with at least 4 characters works in mock mode.
-
-## Scripts
-
-- `npm run dev` starts the Vite dev server
-- `npm run build` builds production assets
-- `npm run preview` previews the build locally
-- `npm run typecheck` runs TypeScript checks
-- `npm run test` runs the Vitest suite
-- `npm run test:watch` runs tests in watch mode
-
-## Tests
-
-Current tests cover:
-
-- TU response to app role mapping
-- mock auth session creation
-- API path building
-
-Test files:
-
-- [`src/features/auth/auth.utils.test.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/auth.utils.test.ts)
-- [`src/features/auth/auth.service.test.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/features/auth/auth.service.test.ts)
-- [`src/lib/apiEndpoints.test.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/apiEndpoints.test.ts)
-
-## Backend contract for `/auth/login`
-
-Suggested request body from frontend:
-
-```json
-{
-  "username": "65070001",
-  "password": "secret"
-}
+### Backend (Local Test)
+รันที่โฟลเดอร์ `backend`:
+```bash
+cd backend
+npm run local
 ```
 
-Suggested backend response:
+---
 
-```json
-{
-  "accessToken": "app-jwt-token",
-  "expiresAt": "2026-05-01T10:00:00.000Z",
-  "profile": {
-    "status": true,
-    "message": "Success",
-    "type": "student",
-    "username": "65070001",
-    "tu_status": "ปกติ",
-    "statusid": "10",
-    "displayname_th": "นักศึกษา ทดสอบ",
-    "displayname_en": "Student Demo",
-    "email": "student@dome.tu.ac.th",
-    "department": "Computer Science",
-    "faculty": "Faculty of Science and Technology"
-  }
-}
+## ☁️ การ Deploy ขึ้น AWS (Deployment)
+
+เราใช้ AWS SAM ในการจัดการ Infrastructure
+
+### 1. การตั้งค่า Credentials (สำหรับ Learner Lab)
+ก๊อปปี้ข้อมูลจากหน้า Vocareum (เมนู AWS Details > CLI Credentials) แล้วตั้งค่า Environment Variables ใน Terminal:
+```bash
+export AWS_ACCESS_KEY_ID="YOUR_KEY"
+export AWS_SECRET_ACCESS_KEY="YOUR_SECRET"
+export AWS_SESSION_TOKEN="YOUR_SESSION_TOKEN"
+export AWS_DEFAULT_REGION="us-east-1"
 ```
 
-The frontend then maps that TU profile into the internal user/session model.
+> **สำคัญมาก**: ในไฟล์ `backend/template.yaml` บรรทัดที่มี `Role: arn:aws:iam::028800569612:role/LabRole` คุณจะต้องเปลี่ยนตัวเลข **028800569612** ให้เป็น **AWS Account ID** ของคุณเอง (ดูได้บรรทัดที่มีข้อความ `export AWS_SESSION_TOKEN` หรือดูใน Console) เพื่อให้มีสิทธิ์ในการสร้างทรัพยากร
 
-## Full backend contract
 
-The current recommended API contract for the whole app is documented in:
+### 2. การ Deploy Backend
+รันในโฟลเดอร์ `backend`:
+```bash
+cd backend
+npm run build
+npm run deploy
+```
+*Note: หลัง Deploy เสร็จ ตรวจสอบ **ApiBaseUrl** ในส่วนของ Outputs เพื่อนำมาใส่ใน `.env.local`*
 
-- [`docs/BACKEND_API_CONTRACT.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/docs/BACKEND_API_CONTRACT.md)
+---
 
-The matching TypeScript contract types live in:
+## 🔑 แผนผังการใช้งาน (Mock vs API Mode)
 
-- [`src/lib/contracts/api.ts`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/src/lib/contracts/api.ts)
+โปรเจกต์นี้รองรับการทำงาน 2 โหมดหลัก คุณสามารถสลับได้ที่ไฟล์ `.env.local`
 
-## Backend scaffold
+### 1. โหมด Mock (สำหรับการพัฒนา UI/UX)
+- **การตั้งค่า**: `VITE_DATA_SOURCE=mock`
+- **การเก็บข้อมูล**: ข้อมูลถูกเก็บไว้ใน **Browser (LocalStorage)** เท่านั้น (ปิดบราวเซอร์แล้วเปิดใหม่ข้อมูลยังอยู่ แต่ถ้าล้าง Cache ข้อมูลจะหาย)
+- **บัญชีสำหรับทดสอบ**:
+  - 🎓 **Student**: User: `student1` / Pass: `1234`
+  - 👨‍🏫 **Teacher**: User: `teacher1` / Pass: `1234`
+- **เหมาะสำหรับ**: นักพัฒนา Frontend ที่ไม่อยากวุ่นวายกับการรัน Backend หรือ AWS
 
-This repo now also includes a starter AWS SAM backend scaffold in:
+### 2. โหมด API (สำหรับการทดสอบระบบจริง/Production)
+- **การตั้งค่า**: `VITE_DATA_SOURCE=api`
+- **การเก็บข้อมูล**: ข้อมูลถูกเก็บไว้ใน **AWS DynamoDB** จริงๆ ข้อมูลจะเชื่อมกันหมดทุกเครื่อง
+- **บัญชีสำหรับทดสอบ**:
+  - 👨‍🏫 **Teacher**: User: `teacher1` (ข้ามการต่อ TU API เสมอเพื่อความสะดวก)
+  - 🎓 **Student**: User: `student1` (ข้ามการต่อ TU API) หรือใช้ Username/Password ของ TU จริง (ถ้าตั้งค่า Key แล้ว)
+- **เหมาะสำหรับ**: การทดสอบ End-to-End, การจัดการข้อมูลจริง และการ Deploy ขึ้นใช้งานจริง
 
-- [`backend/`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/backend)
+---
 
-It includes starter Lambda handlers for:
+## 📁 โครงสร้างโปรเจกต์ (Project Structure)
 
-- `/auth/login`
-- `GET /courses`
-- `POST /courses`
-- `GET /courses/{courseId}`
-- `GET/POST/DELETE /courses/{courseId}/students`
+```text
+Turnity_NEW/
+├── backend/                # ส่วนของ AWS Serverless (Backend)
+│   ├── functions/          # Lambda handlers แยกตาม API endpoint
+│   │   ├── auth-login/     # ระบบยืนยันตัวตน
+│   │   ├── courses-list/   # ดึงรายการวิชาทั้งหมด
+│   │   ├── announcements/  # จัดการประกาศ
+│   │   └── assignments/    # จัดการงานที่มอบหมาย
+│   ├── shared/             # โค้ดที่ใช้ร่วมกันใน Lambda
+│   │   ├── dynamo.js       # Logic การอ่าน/เขียน DynamoDB (SDK v3)
+│   │   └── http.js         # Helper สำหรับสร้าง JSON Response
+│   └── template.yaml       # AWS CloudFormation/SAM Infrastructure
+├── src/                    # ส่วนของ React (Frontend)
+│   ├── app/                # ส่วนควบคุมหลักของแอป
+│   │   ├── components/     # Common UI Components (Button, Input, etc.)
+│   │   ├── layouts/        # โครงสร้างหน้า Dashboard
+│   │   ├── pages/          # หน้าหลักแต่ละหน้า (Student, Instructor, Classroom)
+│   │   └── routes.tsx      # ระบบจัดการเส้นทาง (React Router)
+│   ├── features/           # ระบบฟีเจอร์แยกตามโมดูล
+│   │   └── auth/           # ระบบ Login และ ProtectedRoute
+│   ├── lib/                # Library และ Utility ต่างๆ
+│   │   ├── data/           # Repository Pattern (สลับ API/Mock ได้ที่นี่)
+│   │   └── utils/          # ฟังก์ชันอำนวยความสะดวกทั่วไป
+│   ├── types/              # TypeScript Interfaces/Types ทั้งหมด
+│   └── main.tsx            # จุดเริ่มต้นของแอปพลิเคชัน
+├── docs/                   # เอกสารประกอบการพัฒนา (API Contract, Guides)
+├── .env.local              # ไฟล์ตั้งค่าตัวแปรสภาพแวดล้อม (ห้ามแชร์ขึ้น Git)
+├── package.json            # ไฟล์จัดการ Dependencies และ Scripts
+└── tsconfig.json           # การตั้งค่า TypeScript
+```
 
-These handlers are currently scaffolded to make local development and AWS deployment easier. They are the next place to continue backend implementation.
+---
 
-## Next recommended step
+## 📝 ข้อควรระวัง (Troubleshooting)
 
-The next best improvement is to build the real backend endpoints in this order:
+- **Internal Server Error**: ตรวจสอบว่าใน Lambda มีการใส่ `await` ครบถ้วนหรือไม่ (โดยเฉพาะที่ `dynamo.js`)
+- **CORS Error**: ตรวจสอบ `CORS_ORIGIN` ใน `template.yaml` ว่าตรงกับ URL ที่เรียกใช้งานหรือไม่
+- **AWS Permissions**: หากใช้ Learner Lab ระวังเรื่องสิทธิ์การสร้าง CloudFront (อาจจะโดนบล็อก)
 
-1. `/auth/login`
-2. `/courses`
-3. `/courses/{courseId}`
-4. `/courses/{courseId}/students`
-5. `/courses/{courseId}/announcements`
-6. `/courses/{courseId}/discussions`
-7. `/notifications`
+---
+
+## 👥 ผู้จัดทำ
+ทีมพัฒนา Turnity 24/7 (CS332 - TU)
