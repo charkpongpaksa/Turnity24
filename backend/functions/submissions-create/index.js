@@ -1,89 +1,18 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { badRequest, created, internalError, parseBody } from "../../shared/http.js";
+import { createSubmission } from "../../shared/dynamo.js";
 
-const client = new DynamoDBClient({
-  region: "us-east-1"
-});
-
-const ddb = DynamoDBDocumentClient.from(client);
-
-export const handler = async (event) => {
+export async function handler(event) {
   try {
-    const assignmentId = event.pathParameters?.assignmentId;
-    const body = JSON.parse(event.body || "{}");
+    const assignmentId = event.pathParameters.assignmentId;
+    const body = parseBody(event);
 
-    const studentId = body.studentId;
-    const fileKey = body.fileKey;
-    const note = body.note || "";
-
-    // Validate required fields
-    if (!assignmentId || !studentId || !fileKey) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify(
-          {
-            success: false,
-            message: "assignmentId, studentId and fileKey are required"
-          },
-          null,
-          2
-        )
-      };
+    if (!body.studentId) {
+      return badRequest("Missing required field: studentId");
     }
 
-    const submittedAt = new Date().toISOString();
-
-    const item = {
-      PK: `ASS#${assignmentId}`,
-      SK: `SUBMISSION#${studentId}`,
-      assignmentId,
-      studentId,
-      fileKey,
-      note,
-      status: "submitted",
-      submittedAt
-    };
-
-    await ddb.send(
-      new PutCommand({
-        TableName: process.env.DDB_TABLE_NAME,
-        Item: item
-      })
-    );
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(
-        {
-          success: true,
-          message: "Submission saved successfully",
-          submission: {
-            assignmentId,
-            studentId,
-            status: "submitted",
-            submittedAt,
-            note,
-            fileKey
-          }
-        },
-        null,
-        2
-      )
-    };
+    return created(await createSubmission(assignmentId, body.studentId, body));
   } catch (error) {
-    console.error("Submission save error:", error);
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify(
-        {
-          success: false,
-          message: "Internal Server Error",
-          error: error.message
-        },
-        null,
-        2
-      )
-    };
+    return internalError(error instanceof Error ? error.message : "Failed to create submission");
   }
-};
+}
+
