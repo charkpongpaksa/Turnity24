@@ -246,7 +246,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/discussion-list/index.handler
-      Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         Api:
@@ -260,7 +259,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/discussion-create/index.handler
-      Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         DiscussionsCreate:
@@ -274,7 +272,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/discussion-react/index.handler
-      Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         DiscussionsReact:
@@ -284,12 +281,10 @@ Resources:
             Path: /discussions/react
             Method: POST
 
-
   DiscussionsCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/discussion-comment/index.handler
-      Runtime: nodejs20.x
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         DiscussionsComment:
