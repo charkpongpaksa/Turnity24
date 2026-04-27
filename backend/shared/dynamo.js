@@ -40,6 +40,25 @@ export async function listCourses() {
   }));
 }
 
+export async function listCoursesByStudent(studentId) {
+  const enrollmentQuery = new QueryCommand({
+    TableName: tableName,
+    IndexName: "GSI1",
+    KeyConditionExpression: "GSI1PK = :pk AND begins_with(GSI1SK, :sk)",
+    ExpressionAttributeValues: {
+      ":pk": `STUDENT#${studentId}`,
+      ":sk": "COURSE#",
+    },
+  });
+
+  const enrollments = await client.send(enrollmentQuery);
+  if (!enrollments.Items || enrollments.Items.length === 0) return [];
+
+  const courseIds = enrollments.Items.map((item) => item.GSI1SK.replace("COURSE#", ""));
+  const courses = await Promise.all(courseIds.map((id) => getCourseById(id)));
+  return courses.filter(Boolean);
+}
+
 export async function getCourseById(courseId) {
   const command = new GetCommand({
     TableName: tableName,

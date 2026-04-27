@@ -9,6 +9,7 @@ import {
   SUBMISSIONS,
   buildPath,
 } from "@/lib/apiEndpoints";
+import { authSessionStore } from "@/features/auth/auth.storage";
 import { appConfig, assertApiConfigured } from "@/lib/config/env";
 import type {
   AddStudentToCourseRequest,
@@ -53,7 +54,15 @@ async function withDataSource<T>(
 
 export function listCourses(): Promise<Course[]> {
   return withDataSource(
-    () => api.get<CoursesListResponse>(COURSES.LIST),
+    () => {
+      const session = authSessionStore.get();
+      const role = session?.activeRole;
+      const userId = session?.user?.id;
+      const params = role === "student" && userId
+        ? `?role=student&userId=${encodeURIComponent(userId)}`
+        : "";
+      return api.get<CoursesListResponse>(`${COURSES.LIST}${params}`);
+    },
     () => mockRepository.listCourses()
   );
 }

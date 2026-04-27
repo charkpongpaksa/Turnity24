@@ -181,7 +181,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AssignmentsCreate:
           Type: HttpApi
