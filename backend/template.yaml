@@ -242,6 +242,63 @@ Resources:
             Path: /assignments/{assignmentId}/submissions/{studentId}/grade
             Method: PUT
 
+  DiscussionsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-list/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions
+            Method: GET
+
+  DiscussionsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-create/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        DiscussionsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions
+            Method: POST
+
+  DiscussionsReactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-react/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        DiscussionsReact:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/react
+            Method: POST
+
+
+  DiscussionsCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-comment/index.handler
+      Runtime: nodejs20.x
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        DiscussionsComment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/comment
+            Method: POST
+
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL

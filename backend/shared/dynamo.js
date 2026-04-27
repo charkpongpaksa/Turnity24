@@ -330,3 +330,111 @@ export async function createAssignment(courseId, input) {
     status: "not_submitted",
   };
 }
+
+// Discussion operations
+
+export async function listDiscussions(courseId) {
+  const command = new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+    ExpressionAttributeValues: {
+      ":pk": `COURSE#${courseId}`,
+      ":sk": "DISC#",
+    },
+  });
+
+  const response = await client.send(command);
+  return (response.Items || []).map((item) => ({
+    id: item.SK.replace("DISC#", ""),
+    courseId,
+    title: item.title,
+    content: item.content,
+    author: item.author,
+    likes: item.likes || 0,
+    createdAt: item.createdAt,
+  }));
+}
+
+export async function createDiscussion(courseId, input) {
+  const discussionId = createId("disc");
+  const now = new Date().toISOString();
+
+  const item = {
+    PK: `COURSE#${courseId}`,
+    SK: `DISC#${discussionId}`,
+    id: discussionId,
+    courseId,
+    title: input.title,
+    content: input.content,
+    author: input.author,
+    likes: 0,
+    createdAt: now,
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
+
+  return item;
+}
+
+export async function reactDiscussion(courseId, discussionId) {
+  const command = new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      PK: `COURSE#${courseId}`,
+      SK: `DISC#${discussionId}`,
+    },
+    UpdateExpression: "SET likes = if_not_exists(likes, :zero) + :inc",
+    ExpressionAttributeValues: {
+      ":inc": 1,
+      ":zero": 0,
+    },
+    ReturnValues: "UPDATED_NEW",
+  });
+
+  const res = await client.send(command);
+  return res.Attributes;
+}
+
+// Comment
+
+export async function listComments(discussionId) {
+  const command = new QueryCommand({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+    ExpressionAttributeValues: {
+      ":pk": `DISC#${discussionId}`,
+      ":sk": "COMMENT#",
+    },
+  });
+
+  const res = await client.send(command);
+  return res.Items || [];
+}
+
+export async function createComment(discussionId, input) {
+  const commentId = createId("comment");
+
+  const item = {
+    PK: `DISC#${discussionId}`,
+    SK: `COMMENT#${commentId}`,
+    id: commentId,
+    discussionId,
+    content: input.content,
+    author: input.author,
+    createdAt: new Date().toISOString(),
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
+
+  return item;
+}
