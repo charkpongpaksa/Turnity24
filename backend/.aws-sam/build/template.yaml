@@ -14,8 +14,15 @@ Globals:
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME:
           Ref: TurnityTable
+        NOTIFICATIONS_TOPIC_ARN:
+          Ref: TurnityNotificationsTopic
         POWERTOOLS_SERVICE_NAME: turnity-backend
 Resources:
+  TurnityNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName:
+        Fn::Sub: ${AWS::StackName}-course-notifications
   TurnityApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -62,7 +69,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/auth-login/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AuthLogin:
           Type: HttpApi
@@ -78,7 +86,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CoursesList:
           Type: HttpApi
@@ -94,7 +103,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CoursesCreate:
           Type: HttpApi
@@ -110,7 +120,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-detail/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CourseDetail:
           Type: HttpApi
@@ -126,7 +137,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-students/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CourseStudentsList:
           Type: HttpApi
@@ -156,7 +168,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AnnouncementsList:
           Type: HttpApi
@@ -172,7 +185,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AnnouncementsCreate:
           Type: HttpApi
@@ -188,7 +202,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AssignmentsList:
           Type: HttpApi
@@ -204,7 +219,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AssignmentsCreate:
           Type: HttpApi
@@ -216,11 +232,31 @@ Resources:
       CodeUri: AssignmentsCreateFunction
     Metadata:
       SamResourceId: AssignmentsCreateFunction
+  AssignmentDeadlineReminderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignment-deadline-reminder/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Timeout: 30
+      Events:
+        AssignmentDeadlineReminderSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+      CodeUri: AssignmentDeadlineReminderFunction
+    Metadata:
+      SamResourceId: AssignmentDeadlineReminderFunction
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL
     Value:
       Fn::Sub: https://${TurnityApi}.execute-api.${AWS::Region}.amazonaws.com
+  NotificationsTopicArn:
+    Description: SNS topic ARN for course assignment and announcement notifications
+    Value:
+      Ref: TurnityNotificationsTopic
   TableName:
     Description: DynamoDB table name
     Value:

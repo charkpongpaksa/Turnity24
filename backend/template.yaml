@@ -14,9 +14,30 @@ Globals:
         CORS_ORIGIN: http://localhost:5173
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME: !Ref TurnityTable
+        NOTIFICATIONS_TOPIC_ARN: !Ref TurnityNotificationsTopic
         POWERTOOLS_SERVICE_NAME: turnity-backend
 
 Resources:
+  TurnityNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-course-notifications"
+
+  TurnityNotificationsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref TurnityNotificationsTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowLabRolePublish
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+            Action: sns:Publish
+            Resource: !Ref TurnityNotificationsTopic
+
   TurnityApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -181,7 +202,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
         AssignmentsCreate:
           Type: HttpApi
@@ -190,10 +211,26 @@ Resources:
             Path: /courses/{courseId}/assignments
             Method: POST
 
+  AssignmentDeadlineReminderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignment-deadline-reminder/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      Events:
+        AssignmentDeadlineReminderSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL
     Value: !Sub https://${TurnityApi}.execute-api.${AWS::Region}.amazonaws.com
+  NotificationsTopicArn:
+    Description: SNS topic ARN for course assignment and announcement notifications
+    Value: !Ref TurnityNotificationsTopic
   TableName:
     Description: DynamoDB table name
     Value: !Ref TurnityTable

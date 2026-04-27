@@ -311,3 +311,48 @@ export async function createAssignment(courseId, input) {
     status: "not_submitted",
   };
 }
+
+export async function listAssignmentsDueForReminder(now = new Date(), hoursAhead = 24) {
+  const reminderWindowEnd = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000).toISOString();
+
+  const command = new ScanCommand({
+    TableName: tableName,
+    FilterExpression:
+      "begins_with(SK, :assignmentPrefix) AND dueDate > :now AND dueDate <= :windowEnd AND attribute_not_exists(deadlineReminderSentAt)",
+    ExpressionAttributeValues: {
+      ":assignmentPrefix": "ASS#",
+      ":now": now.toISOString(),
+      ":windowEnd": reminderWindowEnd,
+    },
+  });
+
+  const response = await client.send(command);
+  return (response.Items || []).map((item) => ({
+    id: item.SK.replace("ASS#", ""),
+    courseId: item.PK.replace("COURSE#", ""),
+    title: item.title,
+    description: item.description,
+    points: item.points,
+    type: item.type,
+    dueDate: item.dueDate,
+    status: item.status || "not_submitted",
+  }));
+}
+
+export async function markAssignmentDeadlineReminderSent(courseId, assignmentId, sentAt = new Date().toISOString()) {
+  const command = new UpdateCommand({
+    TableName: tableName,
+    Key: {
+      PK: `COURSE#${courseId}`,
+      SK: `ASS#${assignmentId}`,
+    },
+    UpdateExpression: "SET deadlineReminderSentAt = :sentAt, updatedAt = :updatedAt",
+    ExpressionAttributeValues: {
+      ":sentAt": sentAt,
+      ":updatedAt": sentAt,
+    },
+  });
+
+  await client.send(command);
+  return { courseId, assignmentId, deadlineReminderSentAt: sentAt };
+}

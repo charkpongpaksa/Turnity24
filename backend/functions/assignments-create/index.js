@@ -1,5 +1,6 @@
 import { created, internalError, badRequest } from "../../shared/http.js";
-import { createAssignment } from "../../shared/dynamo.js";
+import { createAssignment, getCourseById } from "../../shared/dynamo.js";
+import { notifyAssignmentCreated } from "../../shared/notifications.js";
 
 export async function handler(event) {
   try {
@@ -11,7 +12,19 @@ export async function handler(event) {
     }
 
     const result = await createAssignment(courseId, body);
-    return created(result);
+    let notification;
+
+    try {
+      const course = await getCourseById(courseId);
+      notification = await notifyAssignmentCreated(course, result);
+    } catch (error) {
+      notification = {
+        skipped: true,
+        reason: error instanceof Error ? error.message : "Failed to publish notification",
+      };
+    }
+
+    return created({ ...result, notification });
   } catch (error) {
     return internalError(error instanceof Error ? error.message : "Failed to create assignment");
   }
