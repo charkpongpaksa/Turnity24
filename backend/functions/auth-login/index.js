@@ -20,7 +20,7 @@ export async function handler(event) {
     const { profile, user } = await authenticateUser({ username, password });
 
     return ok({
-      accessToken: createAccessToken(user.userId),
+      accessToken: createAccessToken(user.userId, user.role),
       refreshToken: `refresh-${user.userId}`,
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 8).toISOString(),
       profile,

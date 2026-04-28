@@ -1,8 +1,17 @@
-import { badRequest, internalError, ok, parseBody } from "../../shared/http.js";
+import {
+  badRequest,
+  forbidden,
+  internalError,
+  ok,
+  parseBody,
+  unauthorized,
+} from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
 import { gradeSubmissionBySubmissionId } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {
+    await requireRole(event, ["instructor"]);
     const assignmentId = event.pathParameters?.assignmentId;
     const submissionId =
       event.pathParameters?.submissionId ?? event.pathParameters?.studentId;
@@ -23,8 +32,10 @@ export async function handler(event) {
       })
     );
   } catch (error) {
-    return internalError(
-      error instanceof Error ? error.message : "Failed to grade submission"
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to grade submission";
+    if (message === "Unauthorized") return unauthorized(message);
+    if (message === "Forbidden") return forbidden(message);
+    return internalError(message);
   }
 }

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   buildTuProfileFromUser,
   ensureLocalAccountsSeeded,
@@ -7,25 +8,65 @@ import {
   verifyLocalCredentials,
 } from "./users.js";
 
-const TOKEN_PREFIX = "turnity";
+const signingSecret =
+  process.env.AUTH_TOKEN_SECRET || "turnity-dev-signing-secret-change-me";
+const tokenLifetimeSeconds = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 28800);
 
 function normalize(value) {
   return String(value || "").trim();
 }
 
-export function createAccessToken(userId) {
-  const issuedAt = Date.now();
-  return `${TOKEN_PREFIX}:${userId}:${issuedAt}`;
+function base64urlEncode(value) {
+  return Buffer.from(value)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function base64urlDecode(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return Buffer.from(`${normalized}${padding}`, "base64").toString("utf8");
+}
+
+function sign(value) {
+  return crypto
+    .createHmac("sha256", signingSecret)
+    .update(value)
+    .digest("base64url");
+}
+
+export function createAccessToken(userId, role = "student") {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const payload = {
+    sub: userId,
+    role,
+    iat: nowSeconds,
+    exp: nowSeconds + tokenLifetimeSeconds,
+  };
+
+  const encodedPayload = base64urlEncode(JSON.stringify(payload));
+  const signature = sign(encodedPayload);
+  return `${encodedPayload}.${signature}`;
 }
 
 export function parseAccessToken(token) {
   const raw = String(token || "").trim();
-  if (!raw) return null;
+  if (!raw || !raw.includes(".")) return null;
 
-  const [prefix, userId] = raw.split(":");
-  if (prefix !== TOKEN_PREFIX || !userId) return null;
+  const [encodedPayload, signature] = raw.split(".");
+  if (!encodedPayload || !signature) return null;
+  if (sign(encodedPayload) !== signature) return null;
 
-  return { userId };
+  try {
+    const payload = JSON.parse(base64urlDecode(encodedPayload));
+    if (!payload?.sub || !payload?.exp) return null;
+    if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export function getBearerToken(event) {
@@ -42,9 +83,27 @@ export function getBearerToken(event) {
 export async function getCurrentUserFromEvent(event) {
   const token = getBearerToken(event);
   const parsed = parseAccessToken(token);
-  if (!parsed?.userId) return null;
+  if (!parsed?.sub) return null;
 
-  return getUserById(parsed.userId);
+  return getUserById(parsed.sub);
+}
+
+export async function requireAuthenticatedUser(event) {
+  const user = await getCurrentUserFromEvent(event);
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  return user;
+}
+
+export async function requireRole(event, roles) {
+  const user = await requireAuthenticatedUser(event);
+  if (!roles.includes(user.role)) {
+    throw new Error("Forbidden");
+  }
+
+  return user;
 }
 
 async function verifyWithTuApi({ username, password }) {

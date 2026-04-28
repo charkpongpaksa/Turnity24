@@ -18,6 +18,7 @@ import {
 const baseClient = new DynamoDBClient({});
 const client = DynamoDBDocumentClient.from(baseClient);
 const tableName = process.env.DDB_TABLE_NAME || "TurnityTable";
+let bootstrapPromise = null;
 
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -132,6 +133,162 @@ function mapNotification(item) {
   };
 }
 
+async function ensureBootstrapData() {
+  if (bootstrapPromise) return bootstrapPromise;
+
+  bootstrapPromise = (async () => {
+    await ensureLocalAccountsSeeded();
+
+    const seedCourseId = "seed-course-1";
+    const seedStudentId = "student-demo";
+    const seedInstructorId = "instructor-demo";
+
+    const existingCourse = await client.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: "META#course",
+        },
+      })
+    );
+
+    if (existingCourse.Item) return;
+
+    const timestamp = now();
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: "META#course",
+          GSI1PK: `COURSE#${seedCourseId}`,
+          GSI1SK: "META#course",
+          id: seedCourseId,
+          name: "Cloud Systems Design",
+          code: "CS440",
+          instructor: "Lecturer Demo",
+          progress: 0,
+          color: "bg-slate-600",
+          students: 1,
+          nextDeadline: today(),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      })
+    );
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: `STUDENT#${seedStudentId}`,
+          GSI1PK: `STUDENT#${seedStudentId}`,
+          GSI1SK: `COURSE#${seedCourseId}`,
+          studentId: seedStudentId,
+          name: "Student Demo",
+          email: "student.demo@turnity.local",
+          role: "student",
+          joinedAt: timestamp,
+        },
+      })
+    );
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: "ANN#seed-ann-1",
+          id: "seed-ann-1",
+          courseId: seedCourseId,
+          title: "Welcome to Turnity",
+          content: "This is the starter announcement for your demo course.",
+          author: "Lecturer Demo",
+          pinned: true,
+          timestamp,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      })
+    );
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: "ASS#seed-assignment-1",
+          id: "seed-assignment-1",
+          courseId: seedCourseId,
+          title: "Architecture Proposal",
+          description: "Submit your initial cloud architecture proposal.",
+          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+          status: "not_submitted",
+          type: "file",
+          points: 100,
+          latePolicy: "10% deduction per day late",
+          attachments: [],
+          submissions: [],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      })
+    );
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `COURSE#${seedCourseId}`,
+          SK: "DISC#seed-discussion-1",
+          id: "seed-discussion-1",
+          courseId: seedCourseId,
+          author: "Lecturer Demo",
+          authorAvatar: "",
+          title: "Course kickoff",
+          content: "Introduce yourself and share what you want from this course.",
+          timestamp,
+          likes: 0,
+          replies: 0,
+          authorId: seedInstructorId,
+          authorRole: "instructor",
+          likedBy: [],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      })
+    );
+
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          PK: `USER#${seedStudentId}`,
+          SK: `NOTIFY#${timestamp}`,
+          GSI1PK: "NOTIFICATION#seed-notify-1",
+          GSI1SK: `USER#${seedStudentId}`,
+          id: "seed-notify-1",
+          studentId: seedStudentId,
+          type: "reminder",
+          title: "Upcoming assignment",
+          message: "Architecture Proposal is due in 7 days.",
+          timestamp,
+          urgent: false,
+          read: false,
+          link: `/course/${seedCourseId}/assignment/seed-assignment-1`,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      })
+    );
+  })();
+
+  return bootstrapPromise;
+}
+
 async function updateCourseStudentCount(courseId) {
   const students = await listCourseStudents(courseId);
   await client.send(
@@ -151,6 +308,7 @@ async function updateCourseStudentCount(courseId) {
 }
 
 export async function listCourses() {
+  await ensureBootstrapData();
   const response = await client.send(
     new ScanCommand({
       TableName: tableName,
@@ -165,6 +323,7 @@ export async function listCourses() {
 }
 
 export async function listCoursesByStudent(studentId) {
+  await ensureBootstrapData();
   const response = await client.send(
     new QueryCommand({
       TableName: tableName,
@@ -262,6 +421,7 @@ export async function updateCourse(courseId, input) {
 }
 
 export async function listCourseStudents(courseId) {
+  await ensureBootstrapData();
   await ensureLocalAccountsSeeded();
 
   const response = await client.send(
@@ -331,10 +491,12 @@ export async function removeStudentFromCourse(courseId, studentId) {
 }
 
 export async function listStudents() {
+  await ensureBootstrapData();
   return listStudentUsers();
 }
 
 export async function listAnnouncements(courseId) {
+  await ensureBootstrapData();
   const response = await client.send(
     new QueryCommand({
       TableName: tableName,
@@ -409,6 +571,7 @@ export async function updateAnnouncement(courseId, announcementId, input) {
 }
 
 export async function listAssignments(courseId) {
+  await ensureBootstrapData();
   const response = await client.send(
     new QueryCommand({
       TableName: tableName,
@@ -593,6 +756,7 @@ export async function createDiscussion(courseId, input) {
 }
 
 export async function listDiscussions(courseId) {
+  await ensureBootstrapData();
   const response = await client.send(
     new QueryCommand({
       TableName: tableName,
@@ -799,6 +963,7 @@ export async function createNotification(studentId, input) {
 }
 
 export async function listNotifications(studentId) {
+  await ensureBootstrapData();
   const command = studentId
     ? new QueryCommand({
         TableName: tableName,

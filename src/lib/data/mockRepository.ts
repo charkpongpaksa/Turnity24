@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   ASSIGNMENTS: "turnity_mock_assignments",
   ANNOUNCEMENTS: "turnity_mock_announcements",
   DISCUSSIONS: "turnity_mock_discussions",
+  NOTIFICATIONS: "turnity_mock_notifications",
   ENROLLMENTS: "turnity_mock_enrollments",
 };
 
@@ -42,6 +43,7 @@ let courseState = loadFromStorage(STORAGE_KEYS.COURSES, mockCourses) as Course[]
 let assignmentState = loadFromStorage(STORAGE_KEYS.ASSIGNMENTS, mockAssignments) as Assignment[];
 let announcementState = loadFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, mockAnnouncements) as Announcement[];
 let discussionState = loadFromStorage(STORAGE_KEYS.DISCUSSIONS, mockDiscussions) as Discussion[];
+let notificationState = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, mockNotifications) as Notification[];
 const studentState = structuredClone(mockStudents) as Student[];
 
 const defaultEnrollments = [
@@ -61,6 +63,7 @@ function persistAll() {
   saveToStorage(STORAGE_KEYS.ASSIGNMENTS, assignmentState);
   saveToStorage(STORAGE_KEYS.ANNOUNCEMENTS, announcementState);
   saveToStorage(STORAGE_KEYS.DISCUSSIONS, discussionState);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationState);
   saveToStorage(STORAGE_KEYS.ENROLLMENTS, Array.from(courseEnrollments.entries()));
 }
 
@@ -160,6 +163,32 @@ export async function getAssignmentById(
   ) as Assignment | undefined) ?? null);
 }
 
+export async function createAssignment(
+  courseId: string,
+  input: Pick<
+    Assignment,
+    "title" | "description" | "dueDate" | "type" | "points" | "latePolicy" | "attachments"
+  > & { status?: Assignment["status"] }
+): Promise<Assignment> {
+  const created: Assignment = {
+    id: createId("assignment"),
+    courseId,
+    title: input.title,
+    description: input.description,
+    dueDate: input.dueDate,
+    status: input.status ?? "not_submitted",
+    type: input.type,
+    points: input.points,
+    latePolicy: input.latePolicy,
+    attachments: input.attachments,
+    submissions: [],
+  };
+
+  assignmentState = [created, ...assignmentState];
+  persistAll();
+  return clone(created);
+}
+
 export async function deleteAssignment(
   courseId: string,
   assignmentId: string
@@ -223,7 +252,30 @@ export async function updateAnnouncement(
 }
 
 export async function listNotifications(): Promise<Notification[]> {
-  return structuredClone(mockNotifications) as Notification[];
+  return clone(notificationState);
+}
+
+export async function markNotificationRead(
+  notificationId: string
+): Promise<Notification | null> {
+  const existing = notificationState.find((notification) => notification.id === notificationId);
+  if (!existing) return null;
+
+  const updated = { ...existing, read: true };
+  notificationState = notificationState.map((notification) =>
+    notification.id === notificationId ? updated : notification
+  );
+  persistAll();
+  return clone(updated);
+}
+
+export async function markAllNotificationsRead(): Promise<Notification[]> {
+  notificationState = notificationState.map((notification) => ({
+    ...notification,
+    read: true,
+  }));
+  persistAll();
+  return clone(notificationState);
 }
 
 export async function listDiscussions(courseId?: string): Promise<Discussion[]> {
@@ -407,6 +459,24 @@ export async function listSubmissions(
     : mockSubmissions;
 
   return structuredClone(submissions) as SubmissionRecord[];
+}
+
+export async function gradeSubmission(
+  assignmentId: string,
+  studentId: string,
+  score: number
+): Promise<SubmissionRecord | null> {
+  const existing = mockSubmissions.find(
+    (submission) =>
+      submission.assignmentId === assignmentId && submission.studentId === studentId
+  );
+
+  if (!existing) return null;
+
+  return structuredClone({
+    ...existing,
+    score,
+  }) as SubmissionRecord;
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {

@@ -28,6 +28,13 @@ export type CreateCourseRequest = {
   instructor: string;
 };
 
+export type CreateAssignmentRequest = Pick<
+  Assignment,
+  "title" | "description" | "dueDate" | "type" | "points" | "latePolicy" | "attachments"
+> & {
+  status?: Assignment["status"];
+};
+
 export type UpdateCourseRequest = Partial<
   Pick<Course, "name" | "code" | "instructor">
 >;

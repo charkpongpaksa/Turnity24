@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { PageBackButton } from "../components/PageBackButton";
 import {
+  gradeSubmission as gradeSubmissionRequest,
   getAssignmentById,
   getCourseById,
   listStudents,
@@ -173,7 +174,7 @@ export function SubmissionTracking() {
   const selectedSubmission =
     studentSubmissions.find((item) => item.id === selectedStudentId) ?? null;
 
-  const saveGrade = (studentId: string) => {
+  const saveGrade = async (studentId: string) => {
     const rawGrade = gradeDrafts[studentId];
     const numericGrade = Number(rawGrade);
 
@@ -182,10 +183,23 @@ export function SubmissionTracking() {
       return;
     }
 
+    if (!courseId || !assignmentId) return;
+
+    const updated = await gradeSubmissionRequest(
+      courseId,
+      assignmentId,
+      studentId,
+      numericGrade
+    );
+
     setLocalSubmissions((current) =>
       current.map((submission) =>
         submission.studentId === studentId && submission.assignmentId === assignmentId
-          ? { ...submission, score: numericGrade }
+          ? {
+              ...submission,
+              score: updated?.score ?? numericGrade,
+              feedback: updated?.feedback ?? submission.feedback,
+            }
           : submission
       )
     );

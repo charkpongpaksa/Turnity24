@@ -31,6 +31,7 @@ import {
   addDiscussionComment,
   addStudentToCourse as addStudentToCourseRequest,
   createAnnouncement,
+  createAssignment,
   createDiscussion,
   deleteDiscussion as deleteDiscussionRequest,
   getCourseById,
@@ -226,21 +227,23 @@ export function ClassroomPage() {
     toast.success("Announcement created successfully!");
   };
 
-  const handleCreateAssignment = (data: AssignmentFormData) => {
-    const newAssignment = {
-      id: `ass-${Date.now()}`,
-      courseId: courseId ?? "",
+  const handleCreateAssignment = async (data: AssignmentFormData) => {
+    if (!courseId) return;
+
+    const newAssignment = await createAssignment(courseId, {
       title: data.title,
       description: data.description,
       points: data.points,
       type: data.type,
       dueDate: new Date(`${data.dueDate}T${data.dueTime}`).toISOString(),
       latePolicy: data.latePolicy,
-      status: "not_submitted" as const,
-      attachments: data.attachments.map(att => ({ name: att.name, url: att.url ?? "" })),
-      submissions: [] as never[],
-    };
-    setLocalAssignments([...localAssignments, newAssignment]);
+      status: "not_submitted",
+      attachments: data.attachments.map((att) => ({
+        name: att.name,
+        url: att.url ?? "",
+      })),
+    });
+    setLocalAssignments((current) => [...current, newAssignment]);
     toast.success("Assignment created successfully!");
   };
 

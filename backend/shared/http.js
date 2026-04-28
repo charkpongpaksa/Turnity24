@@ -25,6 +25,10 @@ export function unauthorized(message = "Unauthorized") {
   return json(401, { message, code: "UNAUTHORIZED" });
 }
 
+export function forbidden(message = "Forbidden") {
+  return json(403, { message, code: "FORBIDDEN" });
+}
+
 export function notFound(message = "Not found") {
   return json(404, { message, code: "NOT_FOUND" });
 }

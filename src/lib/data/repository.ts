@@ -19,6 +19,7 @@ import type {
   CourseStudentsResponse,
   CoursesListResponse,
   CreateAnnouncementRequest,
+  CreateAssignmentRequest,
   CreateCourseRequest,
   CreateDiscussionCommentRequest,
   CreateDiscussionRequest,
@@ -129,6 +130,16 @@ export function getAssignmentById(
   );
 }
 
+export function createAssignment(
+  courseId: string,
+  input: CreateAssignmentRequest
+): Promise<Assignment> {
+  return withDataSource(
+    () => api.post<Assignment>(buildPath(ASSIGNMENTS.CREATE, { courseId }), input),
+    () => mockRepository.createAssignment(courseId, input)
+  );
+}
+
 export function deleteAssignment(
   courseId: string,
   assignmentId: string
@@ -201,6 +212,29 @@ export function listNotifications(): Promise<Notification[]> {
       return api.get<NotificationsListResponse>(`${NOTIFICATIONS.LIST}${query}`);
     },
     () => mockRepository.listNotifications()
+  );
+}
+
+export function markNotificationRead(
+  notificationId: string
+): Promise<Notification | null> {
+  return withDataSource(
+    async () => {
+      await api.put<void>(buildPath(NOTIFICATIONS.MARK_READ, { notificationId }));
+      const notifications = await listNotifications();
+      return notifications.find((notification) => notification.id === notificationId) ?? null;
+    },
+    () => mockRepository.markNotificationRead(notificationId)
+  );
+}
+
+export function markAllNotificationsRead(): Promise<Notification[]> {
+  return withDataSource(
+    async () => {
+      await api.put<void>(NOTIFICATIONS.MARK_ALL);
+      return listNotifications();
+    },
+    () => mockRepository.markAllNotificationsRead()
   );
 }
 
@@ -337,6 +371,23 @@ export function listSubmissions(input?: {
       );
     },
     () => mockRepository.listSubmissions(input?.assignmentId)
+  );
+}
+
+export function gradeSubmission(
+  courseId: string,
+  assignmentId: string,
+  submissionId: string,
+  score: number,
+  feedback = ""
+): Promise<SubmissionRecord | null> {
+  return withDataSource(
+    () =>
+      api.put<SubmissionRecord>(
+        buildPath(SUBMISSIONS.GRADE, { courseId, assignmentId, submissionId }),
+        { score, feedback }
+      ),
+    () => mockRepository.gradeSubmission(assignmentId, submissionId, score)
   );
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Badge } from "../components/ui/badge";
@@ -6,7 +6,11 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { PageBackButton } from "../components/PageBackButton";
 import { cn } from "../components/ui/utils";
-import { listNotifications } from "@/lib/data/repository";
+import {
+  listNotifications,
+  markAllNotificationsRead as markAllNotificationsReadRequest,
+  markNotificationRead as markNotificationReadRequest,
+} from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { resolveNotificationLink } from "@/lib/notifications";
@@ -15,19 +19,14 @@ export function NotificationsPage() {
   const navigate = useNavigate();
   const { currentRole } = useAuth();
   const { data: notificationsData, loading } = useAsyncData(() => listNotifications(), []);
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const notifications = notificationsData ?? [];
+  const [localNotifications, setLocalNotifications] = useState(notificationsData ?? []);
   const isInstructor = currentRole === "instructor";
 
-  const mergedNotifications = useMemo(
-    () =>
-      notifications.map((notification) => ({
-        ...notification,
-        read: notification.read || readIds.includes(notification.id),
-      })),
-    [notifications, readIds]
-  );
+  useEffect(() => {
+    setLocalNotifications(notificationsData ?? []);
+  }, [notificationsData]);
 
+  const mergedNotifications = localNotifications;
   const unreadCount = mergedNotifications.filter((notification) => !notification.read).length;
 
   return (
@@ -46,7 +45,10 @@ export function NotificationsPage() {
         </div>
         <Button
           variant="outline"
-          onClick={() => setReadIds(mergedNotifications.map((notification) => notification.id))}
+          onClick={async () => {
+            const updated = await markAllNotificationsReadRequest();
+            setLocalNotifications(updated);
+          }}
         >
           <CheckCheck className="mr-2 h-4 w-4" />
           Mark all as read
@@ -84,9 +86,14 @@ export function NotificationsPage() {
               !notification.read && "border-blue-200 bg-blue-50/40"
             )}
             onClick={() => {
-              setReadIds((current) =>
-                current.includes(notification.id) ? current : [...current, notification.id]
-              );
+              void markNotificationReadRequest(notification.id).then((updated) => {
+                if (!updated) return;
+                setLocalNotifications((current) =>
+                  current.map((item) =>
+                    item.id === notification.id ? { ...item, read: true } : item
+                  )
+                );
+              });
               navigate(resolveNotificationLink(notification.link, currentRole));
             }}
           >
