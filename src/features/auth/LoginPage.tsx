@@ -79,8 +79,13 @@ export function LoginPage() {
             </div>
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
               {appConfig.dataSource === "mock"
-                ? "Mock mode is enabled. Use usernames like `student01` or `teacher01` to simulate TU account types."
-                : "API mode is enabled. `/auth/login` should validate credentials through your backend, not the browser."}
+                ? "Mock mode is enabled. You can use demo usernames to simulate student and instructor roles."
+                : "API mode is enabled. Use local test accounts from the database or a real TU account. New TU students are created in the database automatically after a successful login."}
+            </div>
+            <div className="rounded-2xl border border-slate-200/20 bg-white/5 p-4 text-sm text-slate-200">
+              <p className="font-medium text-white">Built-in test accounts</p>
+              <p className="mt-2">Student: `student.demo@turnity.local` / `1234`</p>
+              <p>Instructor: `lecturer.demo@turnity.local` / `1234`</p>
             </div>
           </div>
         </div>
@@ -95,7 +100,7 @@ export function LoginPage() {
           <CardContent>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="username">TU Username</Label>
+                <Label htmlFor="username">TU Username or Test Email</Label>
                 <div className="relative">
                   <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
@@ -104,7 +109,7 @@ export function LoginPage() {
                     className="pl-10"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="student or employee account"
+                    placeholder="student ID, TU username, or test email"
                   />
                 </div>
               </div>

@@ -5,8 +5,8 @@ codeuri = "/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/ba
 runtime = "nodejs20.x"
 architecture = "x86_64"
 handler = "functions/auth-login/index.handler"
-manifest_hash = "d6345be7559c03028e114a5f67aa5504"
+manifest_hash = "65e4266f7f3a7f0b3bff832eec1c1521"
 packagetype = "Zip"
-functions = ["AuthLoginFunction", "CoursesListFunction", "CoursesCreateFunction", "CourseDetailFunction", "CourseStudentsFunction", "AnnouncementsListFunction", "AnnouncementsCreateFunction", "AssignmentsListFunction", "AssignmentsCreateFunction"]
+functions = ["AuthLoginFunction", "AuthLogoutFunction", "AuthMeFunction", "CoursesListFunction", "CoursesCreateFunction", "CoursesUpdateFunction", "CourseDetailFunction", "UsersStudentsFunction", "CourseStudentsFunction", "AnnouncementsListFunction", "AnnouncementsCreateFunction", "AssignmentsListFunction", "AssignmentsCreateFunction", "AssignmentsDetailFunction", "AssignmentsDeleteFunction", "AnnouncementsUpdateFunction", "UploadPresignFunction", "SubmissionsCreateFunction", "SubmissionsListFunction", "SubmissionsGradeFunction", "DiscussionsCreateFunction", "DiscussionsListFunction", "DiscussionsUpdateFunction", "DiscussionsDeleteFunction", "DiscussionsLikeFunction", "DiscussionRepliesCreateFunction", "CommentsListFunction", "DiscussionsReactFunction", "DiscussionsCommentFunction", "NotificationsCreateFunction", "NotificationsListFunction", "NotificationsReadFunction", "NotificationsReadAllFunction"]
 
 [layer_build_definitions]

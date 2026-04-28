@@ -1,69 +1,60 @@
-function isMockUsername(username) {
-  const normalized = String(username).trim().toLowerCase();
-  return (
-    normalized.startsWith("student") ||
-    normalized.startsWith("emp") ||
-    normalized.startsWith("teacher") ||
-    normalized.startsWith("lec") ||
-    normalized.includes("staff")
-  );
+import {
+  buildTuProfileFromUser,
+  ensureLocalAccountsSeeded,
+  getUserById,
+  touchUserLogin,
+  upsertUserFromTuProfile,
+  verifyLocalCredentials,
+} from "./users.js";
+
+const TOKEN_PREFIX = "turnity";
+
+function normalize(value) {
+  return String(value || "").trim();
 }
 
-export function createMockTuProfile(username) {
-  const normalized = String(username).trim().toLowerCase();
-  const isInstructor = 
-    normalized.startsWith("emp") ||
-    normalized.startsWith("teacher") ||
-    normalized.startsWith("lec") ||
-    normalized.includes("staff");
-
-  if (isInstructor) {
-    return {
-      status: true,
-      message: "Success",
-      type: "employee",
-      username,
-      displayname_th: "อาจารย์ ทดสอบ",
-      displayname_en: "Lecturer Demo",
-      StatusWork: "1",
-      StatusEmp: "ปกติ",
-      email: `${username}@tu.ac.th`,
-      department: "Computer Science",
-      organization: "Thammasat University",
-    };
-  }
-
-  return {
-    status: true,
-    message: "Success",
-    type: "student",
-    username,
-    tu_status: "ปกติ",
-    statusid: "10",
-    displayname_th: "นักศึกษา ทดสอบ",
-    displayname_en: "Student Demo",
-    email: `${username}@dome.tu.ac.th`,
-    department: "Computer Science",
-    faculty: "Faculty of Science and Technology",
-  };
+export function createAccessToken(userId) {
+  const issuedAt = Date.now();
+  return `${TOKEN_PREFIX}:${userId}:${issuedAt}`;
 }
 
-export async function verifyWithTuApi({ username, password }) {
-  if (!username || !password) {
-    throw new Error("Username and password are required.");
+export function parseAccessToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw) return null;
+
+  const [prefix, userId] = raw.split(":");
+  if (prefix !== TOKEN_PREFIX || !userId) return null;
+
+  return { userId };
+}
+
+export function getBearerToken(event) {
+  const header =
+    event?.headers?.authorization ?? event?.headers?.Authorization ?? "";
+
+  if (!header.toLowerCase().startsWith("bearer ")) {
+    return null;
   }
 
+  return header.slice(7).trim();
+}
+
+export async function getCurrentUserFromEvent(event) {
+  const token = getBearerToken(event);
+  const parsed = parseAccessToken(token);
+  if (!parsed?.userId) return null;
+
+  return getUserById(parsed.userId);
+}
+
+async function verifyWithTuApi({ username, password }) {
   const tuApiKey = process.env.TU_API_APPLICATION_KEY;
   const baseUrl = process.env.TU_API_BASE_URL;
 
-  // กรณีเป็น Username สำหรับทดสอบ (Mock)
-  if (isMockUsername(username)) {
-    return createMockTuProfile(username);
-  }
-
-  // สำหรับ student: เรียก TU API ถ้ามี key ถ้าไม่มีให้ mock
   if (!tuApiKey || !baseUrl) {
-    return createMockTuProfile(username);
+    throw new Error(
+      "TU API is not configured. Set TU_API_APPLICATION_KEY and TU_API_BASE_URL."
+    );
   }
 
   const response = await fetch(`${baseUrl}/verify`, {
@@ -88,4 +79,39 @@ export async function verifyWithTuApi({ username, password }) {
   }
 
   return profile;
+}
+
+export async function authenticateUser({ username, password }) {
+  const normalizedUsername = normalize(username);
+  const normalizedPassword = normalize(password);
+
+  if (!normalizedUsername || !normalizedPassword) {
+    throw new Error("Username and password are required.");
+  }
+
+  await ensureLocalAccountsSeeded();
+
+  const localUser = await verifyLocalCredentials(
+    normalizedUsername,
+    normalizedPassword
+  );
+  if (localUser) {
+    await touchUserLogin(localUser.userId);
+    return {
+      profile: buildTuProfileFromUser(localUser),
+      user: localUser,
+      source: "local",
+    };
+  }
+
+  const tuProfile = await verifyWithTuApi({
+    username: normalizedUsername,
+    password: normalizedPassword,
+  });
+  const user = await upsertUserFromTuProfile(tuProfile);
+  return {
+    profile: tuProfile,
+    user,
+    source: "tu",
+  };
 }

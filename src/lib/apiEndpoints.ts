@@ -26,6 +26,7 @@ export const AUTH = {
 export const USERS = {
   PROFILE:        "/users/profile",            // GET / PUT  → Lambda: users-profile
   PROFILE_AVATAR: "/users/profile/avatar",     // POST       → Lambda: users-avatar (upload to S3)
+  STUDENTS:       "/users/students",           // GET       → Lambda: users-students
 } as const;
 
 // ─── Courses ──────────────────────────────────────────────────────

@@ -116,16 +116,25 @@ Then restart the frontend dev server.
 
 Current backend scaffold:
 
-- `auth-login` falls back to mock auth if `TU_API_APPLICATION_KEY` is not set
-- `courses` handlers currently use a local in-memory mock store
-- DynamoDB is already declared in `template.yaml`, but the handlers are not fully wired to it yet
+- `auth-login` supports 2 login sources:
+  - local database accounts
+  - real TU API login when `TU_API_APPLICATION_KEY` is set
+- successful TU student login automatically creates or updates the student profile in DynamoDB
+- instructor can add a student to a course even before that student logs in
+- if the student record does not exist yet, the backend creates a placeholder student first
+- course, announcement, discussion, notification, and submission handlers are wired to DynamoDB
+
+Built-in local test accounts:
+
+- student: `student.demo@turnity.local` / `1234`
+- instructor: `lecturer.demo@turnity.local` / `1234`
 
 ## 8. Best next step
 
 After successful deploy, continue in this order:
 
-1. wire `courses` handlers to DynamoDB
-2. wire `auth-login` to the real TU API key
-3. add announcements handlers
-4. add discussions handlers
-5. add notifications handlers
+1. set `TU_API_APPLICATION_KEY` in Lambda environment
+2. test `/auth/login` with a real TU student account
+3. test instructor create course + add placeholder student flow
+4. connect the frontend to API mode end-to-end
+5. add stronger authorization checks and production token handling

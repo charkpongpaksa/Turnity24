@@ -5,6 +5,7 @@ This document defines the recommended backend contract for the current frontend.
 The frontend already supports:
 
 - auth with TU-backed login via your backend
+- local instructor/student test accounts stored in DynamoDB
 - courses and enrollments
 - assignments and submissions
 - announcements
@@ -12,6 +13,13 @@ The frontend already supports:
 - notifications
 
 ## Auth
+
+The backend should support both:
+
+- local database accounts for testing
+- TU API login for real university accounts
+
+When a TU login succeeds, the backend should upsert that user into DynamoDB immediately.
 
 ### `POST /auth/login`
 

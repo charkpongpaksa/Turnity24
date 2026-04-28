@@ -125,9 +125,31 @@ npm run deploy
 - **การตั้งค่า**: `VITE_DATA_SOURCE=api`
 - **การเก็บข้อมูล**: ข้อมูลถูกเก็บไว้ใน **AWS DynamoDB** จริงๆ ข้อมูลจะเชื่อมกันหมดทุกเครื่อง
 - **บัญชีสำหรับทดสอบ**:
-  - 👨‍🏫 **Teacher**: User: `teacher1` (ข้ามการต่อ TU API เสมอเพื่อความสะดวก)
-  - 🎓 **Student**: User: `student1` (ข้ามการต่อ TU API) หรือใช้ Username/Password ของ TU จริง (ถ้าตั้งค่า Key แล้ว)
+  - 👨‍🏫 **Instructor local account**: `lecturer.demo@turnity.local` / `1234`
+  - 🎓 **Student local account**: `student.demo@turnity.local` / `1234`
+  - 🎓 **TU student account**: ใช้ TU username/password จริงผ่าน backend ได้เลย ถ้า `TU_API_APPLICATION_KEY` ถูกตั้งค่า
 - **เหมาะสำหรับ**: การทดสอบ End-to-End, การจัดการข้อมูลจริง และการ Deploy ขึ้นใช้งานจริง
+
+### การทำงานของระบบ Login ใน API mode
+
+ระบบรองรับ 2 รูปแบบ:
+
+1. **Local database accounts**
+   - สำหรับ instructor และ student ที่ใช้ทดสอบระบบ
+   - password ถูกเก็บแบบ hash ใน DynamoDB
+
+2. **TU API login**
+   - backend เป็นคนเรียก TU API
+   - ถ้า login ผ่านและยังไม่มี user ในระบบ
+   - ระบบจะสร้างหรืออัปเดต user ใน DynamoDB อัตโนมัติ
+
+### การเพิ่มนักศึกษาเข้า course (Plan B)
+
+ถ้า instructor เพิ่ม `studentId` เข้า course แต่ student คนนั้นยังไม่เคย login:
+
+- ระบบจะสร้าง placeholder student ใน DynamoDB ก่อน
+- พอ student login ผ่าน TU API ครั้งแรก
+- ระบบจะเติมข้อมูลจริงจาก TU ลง record เดิมให้อัตโนมัติ
 
 ---
 

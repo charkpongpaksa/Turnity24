@@ -14,6 +14,8 @@ Globals:
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME:
           Ref: TurnityTable
+        UPLOADS_BUCKET_NAME:
+          Ref: UploadsBucket
         POWERTOOLS_SERVICE_NAME: turnity-backend
 Resources:
   TurnityApi:
@@ -44,6 +46,10 @@ Resources:
         AttributeType: S
       - AttributeName: GSI1SK
         AttributeType: S
+      - AttributeName: GSI2PK
+        AttributeType: S
+      - AttributeName: GSI2SK
+        AttributeType: S
       KeySchema:
       - AttributeName: PK
         KeyType: HASH
@@ -58,11 +64,28 @@ Resources:
           KeyType: RANGE
         Projection:
           ProjectionType: ALL
+      - IndexName: GSI2
+        KeySchema:
+        - AttributeName: GSI2PK
+          KeyType: HASH
+        - AttributeName: GSI2SK
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+  UploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
   AuthLoginFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/auth-login/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AuthLogin:
           Type: HttpApi
@@ -74,11 +97,46 @@ Resources:
       CodeUri: AuthLoginFunction
     Metadata:
       SamResourceId: AuthLoginFunction
+  AuthLogoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/auth-logout/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        AuthLogout:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /auth/logout
+            Method: POST
+      CodeUri: AuthLogoutFunction
+    Metadata:
+      SamResourceId: AuthLogoutFunction
+  AuthMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/auth-me/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        AuthMe:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /auth/me
+            Method: GET
+      CodeUri: AuthMeFunction
+    Metadata:
+      SamResourceId: AuthMeFunction
   CoursesListFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CoursesList:
           Type: HttpApi
@@ -94,7 +152,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/courses-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CoursesCreate:
           Type: HttpApi
@@ -106,11 +165,29 @@ Resources:
       CodeUri: CoursesCreateFunction
     Metadata:
       SamResourceId: CoursesCreateFunction
+  CoursesUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/courses-update/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        CoursesUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}
+            Method: PUT
+      CodeUri: CoursesUpdateFunction
+    Metadata:
+      SamResourceId: CoursesUpdateFunction
   CourseDetailFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-detail/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CourseDetail:
           Type: HttpApi
@@ -122,11 +199,29 @@ Resources:
       CodeUri: CourseDetailFunction
     Metadata:
       SamResourceId: CourseDetailFunction
+  UsersStudentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/users-students/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        UsersStudents:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /users/students
+            Method: GET
+      CodeUri: UsersStudentsFunction
+    Metadata:
+      SamResourceId: UsersStudentsFunction
   CourseStudentsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/course-students/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         CourseStudentsList:
           Type: HttpApi
@@ -156,7 +251,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AnnouncementsList:
           Type: HttpApi
@@ -172,7 +268,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/announcements-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AnnouncementsCreate:
           Type: HttpApi
@@ -188,7 +285,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-list/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AssignmentsList:
           Type: HttpApi
@@ -204,7 +302,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/assignments-create/index.handler
-      Role: arn:aws:iam::028800569612:role/LabRole
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
       Events:
         AssignmentsCreate:
           Type: HttpApi
@@ -216,6 +315,346 @@ Resources:
       CodeUri: AssignmentsCreateFunction
     Metadata:
       SamResourceId: AssignmentsCreateFunction
+  AssignmentsDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-detail/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        AssignmentsDetail:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}
+            Method: GET
+      CodeUri: AssignmentsDetailFunction
+    Metadata:
+      SamResourceId: AssignmentsDetailFunction
+  AssignmentsDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-delete/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        AssignmentsDelete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}
+            Method: DELETE
+      CodeUri: AssignmentsDeleteFunction
+    Metadata:
+      SamResourceId: AssignmentsDeleteFunction
+  AnnouncementsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/announcements-update/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        AnnouncementsUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/announcements/{announcementId}
+            Method: PUT
+      CodeUri: AnnouncementsUpdateFunction
+    Metadata:
+      SamResourceId: AnnouncementsUpdateFunction
+  UploadPresignFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/uploads-presign/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        UploadPresign:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /files/presigned-upload
+            Method: POST
+      CodeUri: UploadPresignFunction
+    Metadata:
+      SamResourceId: UploadPresignFunction
+  SubmissionsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/submissions-create/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        SubmissionsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}/submissions
+            Method: POST
+      CodeUri: SubmissionsCreateFunction
+    Metadata:
+      SamResourceId: SubmissionsCreateFunction
+  SubmissionsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/submissions-list/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        SubmissionsList:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}/submissions
+            Method: GET
+      CodeUri: SubmissionsListFunction
+    Metadata:
+      SamResourceId: SubmissionsListFunction
+  SubmissionsGradeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/submissions-grade/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        SubmissionGrade:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}/submissions/{submissionId}/grade
+            Method: PUT
+      CodeUri: SubmissionsGradeFunction
+    Metadata:
+      SamResourceId: SubmissionsGradeFunction
+  DiscussionsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-create/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions
+            Method: POST
+      CodeUri: DiscussionsCreateFunction
+    Metadata:
+      SamResourceId: DiscussionsCreateFunction
+  DiscussionsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-list/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsList:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions
+            Method: GET
+      CodeUri: DiscussionsListFunction
+    Metadata:
+      SamResourceId: DiscussionsListFunction
+  DiscussionsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-update/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions/{discussionId}
+            Method: PUT
+      CodeUri: DiscussionsUpdateFunction
+    Metadata:
+      SamResourceId: DiscussionsUpdateFunction
+  DiscussionsDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-delete/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsDelete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions/{discussionId}
+            Method: DELETE
+      CodeUri: DiscussionsDeleteFunction
+    Metadata:
+      SamResourceId: DiscussionsDeleteFunction
+  DiscussionsLikeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-like/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsLike:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions/{discussionId}/like
+            Method: POST
+      CodeUri: DiscussionsLikeFunction
+    Metadata:
+      SamResourceId: DiscussionsLikeFunction
+  DiscussionRepliesCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/comments-create/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionRepliesCreate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /courses/{courseId}/discussions/{discussionId}/replies
+            Method: POST
+      CodeUri: DiscussionRepliesCreateFunction
+    Metadata:
+      SamResourceId: DiscussionRepliesCreateFunction
+  CommentsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/comments-list/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        CommentsList:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /discussions/{discussionId}/comments
+            Method: GET
+      CodeUri: CommentsListFunction
+    Metadata:
+      SamResourceId: CommentsListFunction
+  DiscussionsReactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-react/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsReact:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /discussions/react
+            Method: POST
+      CodeUri: DiscussionsReactFunction
+    Metadata:
+      SamResourceId: DiscussionsReactFunction
+  DiscussionsCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-comment/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        DiscussionsComment:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /discussions/comment
+            Method: POST
+      CodeUri: DiscussionsCommentFunction
+    Metadata:
+      SamResourceId: DiscussionsCommentFunction
+  NotificationsCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/notifications-create/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        NotificationsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /students/{studentId}/notifications
+            Method: POST
+      CodeUri: NotificationsCreateFunction
+    Metadata:
+      SamResourceId: NotificationsCreateFunction
+  NotificationsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/notifications-list/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        NotificationsList:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /notifications
+            Method: GET
+      CodeUri: NotificationsListFunction
+    Metadata:
+      SamResourceId: NotificationsListFunction
+  NotificationsReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/notifications-read/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        NotificationsRead:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /notifications/{notificationId}/read
+            Method: PUT
+      CodeUri: NotificationsReadFunction
+    Metadata:
+      SamResourceId: NotificationsReadFunction
+  NotificationsReadAllFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/notifications-read-all/index.handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        NotificationsReadAll:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TurnityApi
+            Path: /notifications/read-all
+            Method: PUT
+      CodeUri: NotificationsReadAllFunction
+    Metadata:
+      SamResourceId: NotificationsReadAllFunction
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL

@@ -7,6 +7,7 @@ import {
   DISCUSSIONS,
   NOTIFICATIONS,
   SUBMISSIONS,
+  USERS,
   buildPath,
 } from "@/lib/apiEndpoints";
 import { authSessionStore } from "@/features/auth/auth.storage";
@@ -193,7 +194,12 @@ export function updateAnnouncement(
 
 export function listNotifications(): Promise<Notification[]> {
   return withDataSource(
-    () => api.get<NotificationsListResponse>(NOTIFICATIONS.LIST),
+    () => {
+      const session = authSessionStore.get();
+      const userId = session?.user.id;
+      const query = userId ? `?studentId=${encodeURIComponent(userId)}` : "";
+      return api.get<NotificationsListResponse>(`${NOTIFICATIONS.LIST}${query}`);
+    },
     () => mockRepository.listNotifications()
   );
 }
@@ -278,7 +284,7 @@ export function toggleDiscussionLike(
 
 export function listStudents(): Promise<Student[]> {
   return withDataSource(
-    async () => [],
+    () => api.get<Student[]>(USERS.STUDENTS),
     () => mockRepository.listStudents()
   );
 }
