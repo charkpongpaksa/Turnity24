@@ -5,6 +5,7 @@ import {
   AUTH,
   COURSES,
   DISCUSSIONS,
+  FILES,
   NOTIFICATIONS,
   SUBMISSIONS,
   USERS,
@@ -391,9 +392,54 @@ export function gradeSubmission(
   );
 }
 
+export function requestPresignedUpload(
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; fileKey: string; publicUrl: string }> {
+  return withDataSource(
+    () =>
+      api.post<{ uploadUrl: string; fileKey: string; publicUrl: string }>(
+        FILES.PRESIGNED_UPLOAD,
+        { fileName, contentType }
+      ),
+    async () => ({
+      uploadUrl: "",
+      fileKey: `mock/${Date.now()}-${fileName}`,
+      publicUrl: "",
+    })
+  );
+}
+
+export function createSubmission(
+  courseId: string,
+  assignmentId: string,
+  input: { text?: string; fileUrl?: string; fileName?: string }
+): Promise<SubmissionRecord> {
+  return withDataSource(
+    () =>
+      api.post<SubmissionRecord>(
+        buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
+        input
+      ),
+    async () => ({
+      id: `mock-sub-${Date.now()}`,
+      assignmentId,
+      studentId: "mock-student",
+      status: "submitted" as const,
+      submittedAt: new Date().toISOString(),
+      score: null,
+      feedback: "",
+      text: input.text ?? "",
+      fileUrl: input.fileUrl ?? null,
+      fileName: input.fileName ?? null,
+    })
+  );
+}
+
 export function getCurrentUser(): Promise<CurrentUser> {
   return withDataSource(
     () => api.get<CurrentUser>(AUTH.ME),
     () => mockRepository.getCurrentUser()
   );
 }
+

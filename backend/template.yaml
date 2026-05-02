@@ -15,6 +15,9 @@ Globals:
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME: !Ref TurnityTable
         UPLOADS_BUCKET_NAME: !Ref UploadsBucket
+        AUTH_TOKEN_SECRET: turnity-prod-secret-change-me-in-console
+        LOCAL_AUTH_SALT: turnity-prod-salt-change-me-in-console
+        TU_API_APPLICATION_KEY: ""
         POWERTOOLS_SERVICE_NAME: turnity-backend
 
 Resources:
@@ -82,6 +85,18 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3000
 
   AuthLoginFunction:
     Type: AWS::Serverless::Function

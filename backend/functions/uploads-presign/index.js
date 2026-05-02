@@ -1,11 +1,13 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { badRequest, internalError, ok, parseBody } from "../../shared/http.js";
+import { badRequest, internalError, ok, parseBody, unauthorized } from "../../shared/http.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
 
 const s3 = new S3Client({});
 
 export async function handler(event) {
   try {
+    await requireAuthenticatedUser(event);
     const body = parseBody(event);
     const fileName = String(body.fileName || body.filename || "").trim();
     const contentType = String(body.contentType || "application/octet-stream").trim();
@@ -34,6 +36,7 @@ export async function handler(event) {
       publicUrl: "",
     });
   } catch (error) {
+    if (error?.message === "Unauthorized") return unauthorized();
     return internalError(
       error instanceof Error ? error.message : "Failed to create upload URL"
     );
