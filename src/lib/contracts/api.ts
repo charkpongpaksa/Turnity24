@@ -35,6 +35,8 @@ export type CreateAssignmentRequest = Pick<
   status?: Assignment["status"];
 };
 
+export type UpdateAssignmentRequest = Partial<CreateAssignmentRequest>;
+
 export type UpdateCourseRequest = Partial<
   Pick<Course, "name" | "code" | "instructor">
 >;

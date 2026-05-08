@@ -631,6 +631,38 @@ export async function createAssignment(courseId, input) {
   return mapAssignment(item);
 }
 
+export async function updateAssignment(courseId, assignmentId, input) {
+  const existing = await getAssignmentById(courseId, assignmentId);
+  if (!existing) return null;
+
+  const nextItem = {
+    PK: `COURSE#${courseId}`,
+    SK: `ASS#${assignmentId}`,
+    ...existing,
+    id: assignmentId,
+    courseId,
+    title: normalizeString(input.title, existing.title),
+    description: normalizeString(input.description, existing.description),
+    dueDate: normalizeString(input.dueDate, existing.dueDate),
+    status: input.status || existing.status,
+    type: normalizeString(input.type, existing.type),
+    points: input.points ?? existing.points,
+    latePolicy: normalizeString(input.latePolicy, existing.latePolicy),
+    attachments: input.attachments ?? existing.attachments,
+    submissions: existing.submissions || [],
+    updatedAt: now(),
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: nextItem,
+    })
+  );
+
+  return mapAssignment(nextItem);
+}
+
 export async function deleteAssignment(courseId, assignmentId) {
   await client.send(
     new DeleteCommand({

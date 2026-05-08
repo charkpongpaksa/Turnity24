@@ -75,6 +75,9 @@ export const FILES = {
    */
   PRESIGNED_UPLOAD: "/files/presigned-upload",   // POST   → Lambda: files-presigned-upload
 
+  /** Request a temporary URL to download a previously uploaded private file. */
+  PRESIGNED_DOWNLOAD: "/files/presigned-download", // POST → Lambda: files-presigned-download
+
   /** Delete a previously uploaded file */
   DELETE:           "/files/{fileKey}",           // DELETE → Lambda: files-delete
 } as const;

@@ -40,7 +40,7 @@ export interface AssignmentFormData {
 interface AssignmentFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: AssignmentFormData) => void;
+  onSave: (data: AssignmentFormData) => void | Promise<void>;
   initialData?: Partial<AssignmentFormData>;
   mode?: "create" | "edit";
   courseId?: string;
@@ -84,6 +84,7 @@ export function AssignmentFormModal({
   const [urlError, setUrlError] = useState("");
   const [showUrlForm, setShowUrlForm] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateField = <K extends keyof AssignmentFormData>(
@@ -152,10 +153,15 @@ export function AssignmentFormModal({
   };
 
   // ─── Submit ─────────────────────────────────────────────────────
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim() || !form.dueDate) return;
-    onSave(form);
-    onClose();
+    setSaving(true);
+    try {
+      await onSave(form);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isValid = form.title.trim().length > 0 && form.dueDate.length > 0;
@@ -397,9 +403,11 @@ export function AssignmentFormModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!isValid}>
-            {mode === "create" ? "Create Assignment" : "Save Changes"}
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!isValid || saving}>
+            {saving
+              ? mode === "create" ? "Creating..." : "Saving..."
+              : mode === "create" ? "Create Assignment" : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

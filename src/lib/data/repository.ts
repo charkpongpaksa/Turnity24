@@ -1,4 +1,4 @@
-import { api } from "@/lib/apiClient";
+import { ApiError, api } from "@/lib/apiClient";
 import {
   ANNOUNCEMENTS,
   ASSIGNMENTS,
@@ -28,6 +28,7 @@ import type {
   NotificationsListResponse,
   SubmissionsListResponse,
   UpdateAnnouncementRequest,
+  UpdateAssignmentRequest,
   UpdateCourseRequest,
   UpdateDiscussionRequest,
 } from "@/lib/contracts/api";
@@ -42,6 +43,33 @@ import type {
   SubmissionRecord,
 } from "@/lib/types/models";
 import * as mockRepository from "./mockRepository";
+
+const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
+
+function loadCachedSubmissions(): SubmissionRecord[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_SUBMISSION_CACHE_KEY);
+    return raw ? JSON.parse(raw) as SubmissionRecord[] : [];
+  } catch {
+    localStorage.removeItem(API_SUBMISSION_CACHE_KEY);
+    return [];
+  }
+}
+
+function cacheSubmission(submission: SubmissionRecord): void {
+  if (typeof window === "undefined") return;
+
+  const next = [
+    submission,
+    ...loadCachedSubmissions().filter(
+      (item) =>
+        !(item.assignmentId === submission.assignmentId && item.studentId === submission.studentId)
+    ),
+  ].slice(0, 50);
+  localStorage.setItem(API_SUBMISSION_CACHE_KEY, JSON.stringify(next));
+}
 
 function mergeSubmissionRecords(
   assignment: Assignment,
@@ -71,6 +99,56 @@ function mergeSubmissionRecords(
   };
 }
 
+function mergeCachedSubmissions(assignments: Assignment[]): Assignment[] {
+  const cachedSubmissions = loadCachedSubmissions();
+  if (cachedSubmissions.length === 0) return assignments;
+
+  return assignments.map((assignment) =>
+    mergeSubmissionRecords(
+      assignment,
+      cachedSubmissions.filter(
+        (submission) => submission.assignmentId === assignment.id
+      )
+    )
+  );
+}
+
+async function mergeApiSubmissions(assignments: Assignment[]): Promise<Assignment[]> {
+  const session = authSessionStore.get();
+  if (assignments.length === 0 || session?.activeRole !== "student") {
+    return mergeCachedSubmissions(assignments);
+  }
+
+  const merged = await Promise.all(
+    assignments.map(async (assignment) => {
+      let submissions: SubmissionsListResponse = [];
+
+      try {
+        submissions = await api.get<SubmissionsListResponse>(
+          buildPath(SUBMISSIONS.LIST, {
+            courseId: assignment.courseId,
+            assignmentId: assignment.id,
+          })
+        );
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status === 403)) {
+          throw error;
+        }
+      }
+
+      const cachedSubmissions = loadCachedSubmissions().filter(
+        (submission) => submission.assignmentId === assignment.id
+      );
+      return mergeSubmissionRecords(assignment, [
+        ...cachedSubmissions,
+        ...submissions,
+      ]);
+    })
+  );
+
+  return merged;
+}
+
 async function getAssignmentWithSubmissions(
   courseId: string,
   assignmentId: string
@@ -78,11 +156,23 @@ async function getAssignmentWithSubmissions(
   const assignment = await api.get<Assignment>(
     buildPath(ASSIGNMENTS.DETAIL, { courseId, assignmentId })
   );
-  const submissions = await api.get<SubmissionsListResponse>(
-    buildPath(SUBMISSIONS.LIST, { courseId, assignmentId })
+  let submissions: SubmissionsListResponse = [];
+
+  try {
+    submissions = await api.get<SubmissionsListResponse>(
+      buildPath(SUBMISSIONS.LIST, { courseId, assignmentId })
+    );
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 403)) {
+      throw error;
+    }
+  }
+
+  const cachedSubmissions = loadCachedSubmissions().filter(
+    (submission) => submission.assignmentId === assignmentId
   );
 
-  return mergeSubmissionRecords(assignment, submissions);
+  return mergeSubmissionRecords(assignment, [...cachedSubmissions, ...submissions]);
 }
 
 async function withDataSource<T>(
@@ -148,14 +238,19 @@ export function listAssignments(courseId?: string): Promise<Assignment[]> {
             )
           )
         );
-        return assignments.flat();
+        return mergeApiSubmissions(assignments.flat());
       },
       () => mockRepository.listAssignments()
     );
   }
 
   return withDataSource(
-    () => api.get<AssignmentsListResponse>(buildPath(ASSIGNMENTS.LIST, { courseId })),
+    async () =>
+      mergeApiSubmissions(
+        await api.get<AssignmentsListResponse>(
+          buildPath(ASSIGNMENTS.LIST, { courseId })
+        )
+      ),
     () => mockRepository.listAssignments(courseId)
   );
 }
@@ -177,6 +272,21 @@ export function createAssignment(
   return withDataSource(
     () => api.post<Assignment>(buildPath(ASSIGNMENTS.CREATE, { courseId }), input),
     () => mockRepository.createAssignment(courseId, input)
+  );
+}
+
+export function updateAssignment(
+  courseId: string,
+  assignmentId: string,
+  input: UpdateAssignmentRequest
+): Promise<Assignment | null> {
+  return withDataSource(
+    () =>
+      api.put<Assignment>(
+        buildPath(ASSIGNMENTS.UPDATE, { courseId, assignmentId }),
+        input
+      ),
+    () => mockRepository.updateAssignment(courseId, assignmentId, input)
   );
 }
 
@@ -449,17 +559,29 @@ export function requestPresignedUpload(
   );
 }
 
+export function requestPresignedDownload(
+  fileKey: string
+): Promise<{ downloadUrl: string }> {
+  return withDataSource(
+    () => api.post<{ downloadUrl: string }>(FILES.PRESIGNED_DOWNLOAD, { fileKey }),
+    async () => ({ downloadUrl: fileKey })
+  );
+}
+
 export function createSubmission(
   courseId: string,
   assignmentId: string,
   input: { text?: string; fileUrl?: string; fileName?: string }
 ): Promise<SubmissionRecord> {
   return withDataSource(
-    () =>
-      api.post<SubmissionRecord>(
+    async () => {
+      const submission = await api.post<SubmissionRecord>(
         buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
         input
-      ),
+      );
+      cacheSubmission(submission);
+      return submission;
+    },
     () => mockRepository.createSubmission(assignmentId, input)
   );
 }

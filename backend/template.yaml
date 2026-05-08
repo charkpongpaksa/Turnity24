@@ -4,7 +4,7 @@ Description: Turnity backend scaffold for AWS SAM
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     Timeout: 10
     MemorySize: 256
     CodeUri: ./
@@ -15,6 +15,7 @@ Globals:
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME: !Ref TurnityTable
         UPLOADS_BUCKET_NAME: !Ref UploadsBucket
+        # CHANGE IN AWS Console/Parameter Store before production. Do not commit real secrets.
         AUTH_TOKEN_SECRET: turnity-prod-secret-change-me-in-console
         LOCAL_AUTH_SALT: turnity-prod-salt-change-me-in-console
         TU_API_APPLICATION_KEY: ""
@@ -33,6 +34,7 @@ Resources:
           - OPTIONS
         AllowOrigins:
           - http://localhost:5173
+          - https://your-production-domain.com
         AllowHeaders:
           - Content-Type
           - Authorization
@@ -136,6 +138,19 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /auth/me
             Method: GET
+
+  AuthRefreshFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/auth-refresh/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AuthRefresh:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /auth/refresh
+            Method: POST
 
   CoursesListFunction:
     Type: AWS::Serverless::Function
@@ -305,6 +320,19 @@ Resources:
             Path: /courses/{courseId}/assignments/{assignmentId}
             Method: DELETE
 
+  AssignmentsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-update/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AssignmentsUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}
+            Method: PUT
+
   AnnouncementsUpdateFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -329,6 +357,19 @@ Resources:
           Properties:
             ApiId: !Ref TurnityApi
             Path: /files/presigned-upload
+            Method: POST
+
+  FilesDownloadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/files-download/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        FilesDownload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /files/presigned-download
             Method: POST
 
   SubmissionsCreateFunction:

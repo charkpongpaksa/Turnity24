@@ -15,6 +15,7 @@
 import { appConfig } from "@/lib/config/env";
 
 const BASE_URL = appConfig.apiBaseUrl;
+const SESSION_KEY = "turnity_auth_session";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -44,6 +45,45 @@ export const tokenStore = {
   set: (token: string): void => localStorage.setItem(TOKEN_KEY, token),
   clear: (): void => localStorage.removeItem(TOKEN_KEY),
 };
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  const rawSession = localStorage.getItem(SESSION_KEY);
+  if (!rawSession) return false;
+
+  try {
+    const session = JSON.parse(rawSession) as {
+      refreshToken?: string;
+      accessToken?: string;
+      expiresAt?: string;
+    };
+    if (!session.refreshToken) return false;
+
+    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    if (!response.ok) return false;
+
+    const refreshed = (await response.json()) as {
+      accessToken: string;
+      refreshToken?: string;
+      expiresAt: string;
+    };
+    const nextSession = {
+      ...session,
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken ?? session.refreshToken,
+      expiresAt: refreshed.expiresAt,
+    };
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+    tokenStore.set(refreshed.accessToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ─── Core fetch wrapper ───────────────────────────────────────────
 
@@ -79,6 +119,13 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !skipAuth) {
+      const refreshed = await attemptTokenRefresh();
+      if (refreshed) {
+        return request<T>(path, options);
+      }
+    }
+
     const err = data as { message?: string; code?: string } | undefined;
     throw new ApiError(
       response.status,
@@ -125,6 +172,10 @@ export async function uploadToS3(
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const timeout = window.setTimeout(() => {
+      xhr.abort();
+      reject(new Error("S3 upload timed out. Please try again."));
+    }, 60000);
 
     if (onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -134,9 +185,18 @@ export async function uploadToS3(
       };
     }
 
-    xhr.onload = () =>
+    xhr.onload = () => {
+      window.clearTimeout(timeout);
       xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
-    xhr.onerror = () => reject(new Error("S3 upload network error"));
+    };
+    xhr.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("S3 upload network error"));
+    };
+    xhr.onabort = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("S3 upload was cancelled."));
+    };
 
     xhr.open("PUT", presignedUrl);
     xhr.setRequestHeader("Content-Type", file.type);
