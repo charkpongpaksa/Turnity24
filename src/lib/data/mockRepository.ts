@@ -25,6 +25,7 @@ const STORAGE_KEYS = {
   ANNOUNCEMENTS: "turnity_mock_announcements",
   DISCUSSIONS: "turnity_mock_discussions",
   NOTIFICATIONS: "turnity_mock_notifications",
+  SUBMISSIONS: "turnity_mock_submissions",
   ENROLLMENTS: "turnity_mock_enrollments",
 };
 
@@ -44,6 +45,7 @@ let assignmentState = loadFromStorage(STORAGE_KEYS.ASSIGNMENTS, mockAssignments)
 let announcementState = loadFromStorage(STORAGE_KEYS.ANNOUNCEMENTS, mockAnnouncements) as Announcement[];
 let discussionState = loadFromStorage(STORAGE_KEYS.DISCUSSIONS, mockDiscussions) as Discussion[];
 let notificationState = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, mockNotifications) as Notification[];
+let submissionState = loadFromStorage(STORAGE_KEYS.SUBMISSIONS, mockSubmissions) as SubmissionRecord[];
 const studentState = structuredClone(mockStudents) as Student[];
 
 const defaultEnrollments = [
@@ -64,6 +66,7 @@ function persistAll() {
   saveToStorage(STORAGE_KEYS.ANNOUNCEMENTS, announcementState);
   saveToStorage(STORAGE_KEYS.DISCUSSIONS, discussionState);
   saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationState);
+  saveToStorage(STORAGE_KEYS.SUBMISSIONS, submissionState);
   saveToStorage(STORAGE_KEYS.ENROLLMENTS, Array.from(courseEnrollments.entries()));
 }
 
@@ -455,10 +458,61 @@ export async function listSubmissions(
   assignmentId?: string
 ): Promise<SubmissionRecord[]> {
   const submissions = assignmentId
-    ? mockSubmissions.filter((submission) => submission.assignmentId === assignmentId)
-    : mockSubmissions;
+    ? submissionState.filter((submission) => submission.assignmentId === assignmentId)
+    : submissionState;
 
   return structuredClone(submissions) as SubmissionRecord[];
+}
+
+export async function createSubmission(
+  assignmentId: string,
+  input: { text?: string; fileUrl?: string; fileName?: string }
+): Promise<SubmissionRecord> {
+  const submittedAt = new Date().toISOString();
+  const assignment = assignmentState.find((item) => item.id === assignmentId);
+  const isLate = assignment ? new Date(submittedAt) > new Date(assignment.dueDate) : false;
+  const fileName = input.fileName || input.fileUrl || undefined;
+
+  const created: SubmissionRecord = {
+    id: createId("mock-sub"),
+    assignmentId,
+    studentId: currentUser.id,
+    status: isLate ? "late" : "submitted",
+    submittedAt,
+    score: null,
+    feedback: "Pending review",
+    text: input.text ?? "",
+    fileUrl: input.fileUrl ?? null,
+    fileName: input.fileName ?? null,
+  };
+
+  submissionState = [
+    created,
+    ...submissionState.filter(
+      (submission) =>
+        !(submission.assignmentId === assignmentId && submission.studentId === currentUser.id)
+    ),
+  ];
+
+  assignmentState = assignmentState.map((item) =>
+    item.id === assignmentId
+      ? {
+          ...item,
+          status: created.status,
+          submissions: [
+            {
+              submittedAt,
+              files: fileName ? [fileName] : [],
+              feedback: "Pending review",
+              score: null,
+            },
+          ],
+        }
+      : item
+  );
+
+  persistAll();
+  return clone(created);
 }
 
 export async function gradeSubmission(
@@ -466,17 +520,25 @@ export async function gradeSubmission(
   studentId: string,
   score: number
 ): Promise<SubmissionRecord | null> {
-  const existing = mockSubmissions.find(
+  const existing = submissionState.find(
     (submission) =>
       submission.assignmentId === assignmentId && submission.studentId === studentId
   );
 
   if (!existing) return null;
 
-  return structuredClone({
+  const updated = {
     ...existing,
     score,
-  }) as SubmissionRecord;
+  } as SubmissionRecord;
+
+  submissionState = submissionState.map((submission) =>
+    submission.assignmentId === assignmentId && submission.studentId === studentId
+      ? updated
+      : submission
+  );
+  persistAll();
+  return clone(updated);
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {

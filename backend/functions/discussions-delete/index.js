@@ -1,5 +1,5 @@
-import { internalError, ok } from "../../shared/http.js";
-import { deleteDiscussion } from "../../shared/dynamo.js";
+import { internalError, ok } from "./shared/http.js";
+import { deleteDiscussion } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {

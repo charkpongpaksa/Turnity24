@@ -6,14 +6,14 @@ import {
   ok,
   parseBody,
   unauthorized,
-} from "../../shared/http.js";
-import { requireRole } from "../../shared/auth.js";
+} from "./shared/http.js";
+import { requireRole } from "./shared/auth.js";
 import {
   addStudentToCourse,
   getCourseById,
   listCourseStudents,
   removeStudentFromCourse,
-} from "../../shared/dynamo.js";
+} from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {

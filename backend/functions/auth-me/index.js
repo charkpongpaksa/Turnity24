@@ -1,5 +1,5 @@
-import { getCurrentUserFromEvent } from "../../shared/auth.js";
-import { ok, unauthorized } from "../../shared/http.js";
+import { getCurrentUserFromEvent } from "./shared/auth.js";
+import { ok, unauthorized } from "./shared/http.js";
 
 function initialsFromName(name) {
   return String(name || "")

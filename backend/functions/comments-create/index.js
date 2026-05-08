@@ -4,9 +4,9 @@ import {
   internalError,
   parseBody,
   unauthorized,
-} from "../../shared/http.js";
-import { requireAuthenticatedUser } from "../../shared/auth.js";
-import { createComment, getDiscussionById } from "../../shared/dynamo.js";
+} from "./shared/http.js";
+import { requireAuthenticatedUser } from "./shared/auth.js";
+import { createComment, getDiscussionById } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {

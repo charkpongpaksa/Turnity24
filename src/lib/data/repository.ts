@@ -43,6 +43,48 @@ import type {
 } from "@/lib/types/models";
 import * as mockRepository from "./mockRepository";
 
+function mergeSubmissionRecords(
+  assignment: Assignment,
+  submissions: SubmissionRecord[]
+): Assignment {
+  if (submissions.length === 0) return assignment;
+
+  const latestSubmission = submissions
+    .filter((submission) => submission.submittedAt)
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt ?? 0).getTime() -
+        new Date(a.submittedAt ?? 0).getTime()
+    )[0];
+
+  return {
+    ...assignment,
+    status: latestSubmission?.status ?? assignment.status,
+    submissions: submissions
+      .filter((submission) => submission.submittedAt)
+      .map((submission) => ({
+        submittedAt: submission.submittedAt ?? new Date().toISOString(),
+        files: submission.fileName ? [submission.fileName] : [],
+        feedback: submission.feedback || "Pending review",
+        score: submission.score,
+      })),
+  };
+}
+
+async function getAssignmentWithSubmissions(
+  courseId: string,
+  assignmentId: string
+): Promise<Assignment> {
+  const assignment = await api.get<Assignment>(
+    buildPath(ASSIGNMENTS.DETAIL, { courseId, assignmentId })
+  );
+  const submissions = await api.get<SubmissionsListResponse>(
+    buildPath(SUBMISSIONS.LIST, { courseId, assignmentId })
+  );
+
+  return mergeSubmissionRecords(assignment, submissions);
+}
+
 async function withDataSource<T>(
   apiLoader: () => Promise<T>,
   mockLoader: () => Promise<T>
@@ -123,10 +165,7 @@ export function getAssignmentById(
   assignmentId: string
 ): Promise<Assignment | null> {
   return withDataSource(
-    () =>
-      api.get<Assignment>(
-        buildPath(ASSIGNMENTS.DETAIL, { courseId, assignmentId })
-      ),
+    () => getAssignmentWithSubmissions(courseId, assignmentId),
     () => mockRepository.getAssignmentById(assignmentId)
   );
 }
@@ -421,18 +460,7 @@ export function createSubmission(
         buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
         input
       ),
-    async () => ({
-      id: `mock-sub-${Date.now()}`,
-      assignmentId,
-      studentId: "mock-student",
-      status: "submitted" as const,
-      submittedAt: new Date().toISOString(),
-      score: null,
-      feedback: "",
-      text: input.text ?? "",
-      fileUrl: input.fileUrl ?? null,
-      fileName: input.fileName ?? null,
-    })
+    () => mockRepository.createSubmission(assignmentId, input)
   );
 }
 

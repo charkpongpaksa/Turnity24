@@ -1,7 +1,7 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { badRequest, internalError, ok, parseBody, unauthorized } from "../../shared/http.js";
-import { requireAuthenticatedUser } from "../../shared/auth.js";
+import { badRequest, internalError, ok, parseBody, unauthorized } from "./shared/http.js";
+import { requireAuthenticatedUser } from "./shared/auth.js";
 
 const s3 = new S3Client({});
 

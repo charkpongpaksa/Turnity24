@@ -1,6 +1,6 @@
-import { forbidden, internalError, ok, unauthorized } from "../../shared/http.js";
-import { requireRole } from "../../shared/auth.js";
-import { listSubmissions } from "../../shared/dynamo.js";
+import { forbidden, internalError, ok, unauthorized } from "./shared/http.js";
+import { requireRole } from "./shared/auth.js";
+import { listSubmissions } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {

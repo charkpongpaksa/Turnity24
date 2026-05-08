@@ -1,6 +1,6 @@
-import { badRequest, internalError, notFound, ok, unauthorized } from "../../shared/http.js";
-import { getAssignmentById } from "../../shared/dynamo.js";
-import { requireAuthenticatedUser } from "../../shared/auth.js";
+import { badRequest, internalError, notFound, ok, unauthorized } from "./shared/http.js";
+import { getAssignmentById } from "./shared/dynamo.js";
+import { requireAuthenticatedUser } from "./shared/auth.js";
 
 export async function handler(event) {
   try {

@@ -1,5 +1,5 @@
-import { badRequest, internalError, ok, parseBody } from "../../shared/http.js";
-import { updateDiscussion } from "../../shared/dynamo.js";
+import { badRequest, internalError, ok, parseBody } from "./shared/http.js";
+import { updateDiscussion } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {

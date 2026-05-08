@@ -1,0 +1,54 @@
+# Node modules and dependencies
+node_modules/
+.npm/
+.yarn/
+
+# Version control
+.git/
+.gitignore
+.github/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build and cache
+.aws-sam/
+build/
+dist/
+
+# Documentation
+*.md
+docs/
+guidelines/
+
+# Configuration examples
+*.example*
+.env.example
+
+# Frontend (not needed for backend)
+src/
+public/
+dist/
+.next/
+.nuxt/
+
+# Project files not needed for Lambda
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+tsconfig.json
+postcss.config.mjs
+vite.config.ts
+package-lock.json
+README.md
+ROADMAP.md
+ATTRIBUTIONS.md

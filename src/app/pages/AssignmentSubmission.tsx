@@ -112,9 +112,7 @@ export function AssignmentSubmission() {
       await createSubmission(courseId, assignmentId, { text, fileUrl, fileName });
       toast.success("Assignment submitted successfully!");
       setSubmitted(true);
-      setTimeout(() => {
-        navigate(`/course/${courseId}/assignment/${assignmentId}`);
-      }, 2000);
+      navigate(`/course/${courseId}/assignment/${assignmentId}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit assignment");
     } finally {

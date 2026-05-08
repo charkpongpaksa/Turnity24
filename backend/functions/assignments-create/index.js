@@ -5,9 +5,9 @@ import {
   internalError,
   parseBody,
   unauthorized,
-} from "../../shared/http.js";
-import { requireRole } from "../../shared/auth.js";
-import { createAssignment } from "../../shared/dynamo.js";
+} from "./shared/http.js";
+import { requireRole } from "./shared/auth.js";
+import { createAssignment } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {
