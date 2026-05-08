@@ -51,6 +51,7 @@ export type AuthUser = {
 
 export type AuthSession = {
   accessToken: string;
+  refreshToken?: string;
   expiresAt: string;
   user: AuthUser;
   activeRole: AppRole;

@@ -4,7 +4,7 @@ Description: Turnity backend scaffold for AWS SAM
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 10
     MemorySize: 256
     CodeUri: ./
@@ -15,8 +15,8 @@ Globals:
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME: !Ref TurnityTable
         UPLOADS_BUCKET_NAME: !Ref UploadsBucket
-        AUTH_TOKEN_SECRET: turnity-prod-secret-change-me-in-console
-        LOCAL_AUTH_SALT: turnity-prod-salt-change-me-in-console
+        AUTH_TOKEN_SECRET: turnity-prod-secret-change-me-in-console # ⚠️ Set this in Lambda Console or SSM
+        LOCAL_AUTH_SALT: turnity-prod-salt-change-me-in-console    # ⚠️ Set this in Lambda Console or SSM
         TU_API_APPLICATION_KEY: ""
         POWERTOOLS_SERVICE_NAME: turnity-backend
 
@@ -33,6 +33,7 @@ Resources:
           - OPTIONS
         AllowOrigins:
           - http://localhost:5173
+          - https://turnity.tu.ac.th # TODO: Replace with your real production domain
         AllowHeaders:
           - Content-Type
           - Authorization
@@ -95,8 +96,79 @@ Resources:
               - POST
               - HEAD
             AllowedOrigins:
-              - "*"
+              - http://localhost:5173
+              - https://turnity.tu.ac.th # TODO: Replace with your real production domain
             MaxAge: 3000
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${FrontendBucket}/*"
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: "OAC for Turnity Frontend S3 bucket"
+        Name: !Sub "${AWS::StackName}-frontend-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: FrontendS3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+        DefaultCacheBehavior:
+          TargetOriginId: FrontendS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          Compress: true
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
 
   AuthLoginFunction:
     Type: AWS::Serverless::Function
@@ -136,6 +208,19 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /auth/me
             Method: GET
+
+  AuthRefreshFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/auth-refresh/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AuthRefresh:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /auth/refresh
+            Method: POST
 
   CoursesListFunction:
     Type: AWS::Serverless::Function
@@ -329,6 +414,19 @@ Resources:
           Properties:
             ApiId: !Ref TurnityApi
             Path: /files/presigned-upload
+            Method: POST
+
+  FilesDownloadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/files-download/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        FilesDownload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /files/presigned-download
             Method: POST
 
   SubmissionsCreateFunction:
@@ -545,3 +643,9 @@ Outputs:
   TableName:
     Description: DynamoDB table name
     Value: !Ref TurnityTable
+  FrontendUrl:
+    Description: Frontend CloudFront URL
+    Value: !Sub https://${CloudFrontDistribution}.cloudfront.net
+  FrontendBucketName:
+    Description: Frontend S3 Bucket Name
+    Value: !Ref FrontendBucket

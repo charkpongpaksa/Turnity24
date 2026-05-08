@@ -631,6 +631,40 @@ export async function createAssignment(courseId, input) {
   return mapAssignment(item);
 }
 
+export async function updateAssignment(courseId, assignmentId, input) {
+  const current = await getAssignmentById(courseId, assignmentId);
+  if (!current) return null;
+
+  const timestamp = now();
+  const nextItem = {
+    ...current,
+    title: input.title ?? current.title,
+    description: input.description ?? current.description,
+    dueDate: input.dueDate ?? current.dueDate,
+    points: input.points ?? current.points,
+    type: input.type ?? current.type,
+    latePolicy: input.latePolicy ?? current.latePolicy,
+    attachments: input.attachments ?? current.attachments,
+    updatedAt: timestamp,
+  };
+
+  // Convert map format back to DB format for Put
+  const dbItem = {
+    PK: `COURSE#${courseId}`,
+    SK: `ASS#${assignmentId}`,
+    ...nextItem,
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: dbItem,
+    })
+  );
+
+  return mapAssignment(dbItem);
+}
+
 export async function deleteAssignment(courseId, assignmentId) {
   await client.send(
     new DeleteCommand({

@@ -180,6 +180,21 @@ export function createAssignment(
   );
 }
 
+export function updateAssignment(
+  courseId: string,
+  assignmentId: string,
+  input: Partial<CreateAssignmentRequest>
+): Promise<Assignment | null> {
+  return withDataSource(
+    () =>
+      api.put<Assignment>(
+        buildPath(ASSIGNMENTS.UPDATE, { courseId, assignmentId }),
+        input
+      ),
+    () => mockRepository.updateAssignment(courseId, assignmentId, input)
+  );
+}
+
 export function deleteAssignment(
   courseId: string,
   assignmentId: string
@@ -445,6 +460,18 @@ export function requestPresignedUpload(
       uploadUrl: "",
       fileKey: `mock/${Date.now()}-${fileName}`,
       publicUrl: "",
+    })
+  );
+}
+
+export function requestPresignedDownload(
+  fileKey: string
+): Promise<{ downloadUrl: string }> {
+  return withDataSource(
+    () =>
+      api.post<{ downloadUrl: string }>(FILES.PRESIGNED_DOWNLOAD, { fileKey }),
+    async () => ({
+      downloadUrl: "https://example.com/mock-download-url",
     })
   );
 }

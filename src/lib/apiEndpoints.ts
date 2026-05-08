@@ -75,6 +75,11 @@ export const FILES = {
    */
   PRESIGNED_UPLOAD: "/files/presigned-upload",   // POST   → Lambda: files-presigned-upload
 
+  /**
+   * Request a pre-signed S3 URL to download a file.
+   */
+  PRESIGNED_DOWNLOAD: "/files/presigned-download", // GET → Lambda: files-presigned-download
+
   /** Delete a previously uploaded file */
   DELETE:           "/files/{fileKey}",           // DELETE → Lambda: files-delete
 } as const;

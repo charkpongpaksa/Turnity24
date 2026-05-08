@@ -60,6 +60,7 @@ async function loginWithMock(input: LoginFormInput): Promise<AuthSession> {
 
   const session = buildAuthSession({
     accessToken: `mock-token-${input.username}`,
+    refreshToken: `mock-refresh-${input.username}`,
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 8).toISOString(),
     profile: createMockProfile(input.username),
   });

@@ -13,6 +13,8 @@
  */
 
 import { appConfig } from "@/lib/config/env";
+import { authSessionStore } from "@/features/auth/auth.storage";
+import { AUTH } from "@/lib/apiEndpoints";
 
 const BASE_URL = appConfig.apiBaseUrl;
 
@@ -35,15 +37,53 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   skipAuth?: boolean;
 }
 
-// ─── Token helpers ────────────────────────────────────────────────
+// ── Refresh logic ──────────────────────────────────────────────────
 
-const TOKEN_KEY = "turnity_token";
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
 
-export const tokenStore = {
-  get: (): string | null => localStorage.getItem(TOKEN_KEY),
-  set: (token: string): void => localStorage.setItem(TOKEN_KEY, token),
-  clear: (): void => localStorage.removeItem(TOKEN_KEY),
-};
+function onTokenRefreshed(token: string) {
+  refreshSubscribers.map((callback) => callback(token));
+  refreshSubscribers = [];
+}
+
+async function attemptRefresh(): Promise<string | null> {
+  const session = authSessionStore.get();
+  const refreshToken = session?.refreshToken;
+
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch(`${BASE_URL}${AUTH.REFRESH}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) throw new Error("Refresh failed");
+
+    const data = await response.json() as { 
+      accessToken: string; 
+      refreshToken: string; 
+      expiresAt: string 
+    };
+    
+    if (session) {
+      authSessionStore.set({
+        ...session,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        expiresAt: new Date(data.expiresAt).toISOString(),
+      });
+    }
+    
+    return data.accessToken;
+  } catch (error) {
+    authSessionStore.clear();
+    window.location.href = "/login";
+    return null;
+  }
+}
 
 // ─── Core fetch wrapper ───────────────────────────────────────────
 
@@ -59,35 +99,58 @@ async function request<T>(
   };
 
   if (!skipAuth) {
-    const token = tokenStore.get();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    const session = authSessionStore.get();
+    if (session?.accessToken) {
+      headers["Authorization"] = `Bearer ${session.accessToken}`;
     }
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...rest,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      ...rest,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
 
-  // Parse body if content exists
-  let data: unknown;
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    data = await response.json();
+    // Parse body if content exists
+    let data: unknown;
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    }
+
+    if (response.status === 401 && !skipAuth) {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        const newToken = await attemptRefresh();
+        isRefreshing = false;
+        if (newToken) {
+          onTokenRefreshed(newToken);
+          return request<T>(path, options);
+        }
+      } else {
+        return new Promise<T>((resolve) => {
+          refreshSubscribers.push((token: string) => {
+            resolve(request<T>(path, options));
+          });
+        });
+      }
+    }
+
+    if (!response.ok) {
+      const err = data as { message?: string; code?: string } | undefined;
+      throw new ApiError(
+        response.status,
+        err?.code ?? "UNKNOWN_ERROR",
+        err?.message ?? `HTTP ${response.status}`
+      );
+    }
+
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new Error(error instanceof Error ? error.message : "Network error");
   }
-
-  if (!response.ok) {
-    const err = data as { message?: string; code?: string } | undefined;
-    throw new ApiError(
-      response.status,
-      err?.code ?? "UNKNOWN_ERROR",
-      err?.message ?? `HTTP ${response.status}`
-    );
-  }
-
-  return data as T;
 }
 
 // ─── Convenience methods ──────────────────────────────────────────
@@ -102,29 +165,21 @@ export const api = {
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { method: "PUT", body, ...options }),
 
-  delete: <T>(path: string, options?: RequestOptions) =>
+  delete: <T>(path: string, options?: Omit<RequestOptions, "body">) =>
     request<T>(path, { method: "DELETE", ...options }),
 };
 
 // ─── File upload via pre-signed S3 URL ───────────────────────────
 
-/**
- * Upload a file directly to S3 using a pre-signed URL obtained from Lambda.
- *
- * Usage:
- *   const { uploadUrl, publicUrl } = await api.post(FILES.PRESIGNED_UPLOAD, {
- *     filename: file.name,
- *     contentType: file.type,
- *   });
- *   await uploadToS3(uploadUrl, file);
- */
 export async function uploadToS3(
   presignedUrl: string,
   file: File,
   onProgress?: (percent: number) => void
 ): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    xhr.open("PUT", presignedUrl);
+    xhr.setRequestHeader("Content-Type", file.type);
 
     if (onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -134,12 +189,15 @@ export async function uploadToS3(
       };
     }
 
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
-    xhr.onerror = () => reject(new Error("S3 upload network error"));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`S3 upload failed: ${xhr.status}`));
+      }
+    };
 
-    xhr.open("PUT", presignedUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.onerror = () => reject(new Error("S3 network error"));
     xhr.send(file);
   });
 }

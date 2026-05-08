@@ -192,6 +192,24 @@ export async function createAssignment(
   return clone(created);
 }
 
+export async function updateAssignment(
+  courseId: string,
+  assignmentId: string,
+  input: Partial<Pick<Assignment, "title" | "description" | "dueDate" | "status" | "points">>
+): Promise<Assignment | null> {
+  const existing = assignmentState.find(
+    (assignment) => assignment.id === assignmentId && assignment.courseId === courseId
+  );
+  if (!existing) return null;
+
+  const updated = { ...existing, ...input };
+  assignmentState = assignmentState.map((assignment) =>
+    assignment.id === assignmentId ? updated : assignment
+  );
+  persistAll();
+  return clone(updated);
+}
+
 export async function deleteAssignment(
   courseId: string,
   assignmentId: string

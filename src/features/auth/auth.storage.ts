@@ -1,4 +1,3 @@
-import { tokenStore } from "@/lib/apiClient";
 import type { AuthSession } from "./auth.types";
 
 const SESSION_KEY = "turnity_auth_session";
@@ -22,11 +21,9 @@ export const authSessionStore = {
 
   set(session: AuthSession): void {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    tokenStore.set(session.accessToken);
   },
 
   clear(): void {
     localStorage.removeItem(SESSION_KEY);
-    tokenStore.clear();
   },
 };
