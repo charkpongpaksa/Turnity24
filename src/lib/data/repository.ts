@@ -46,6 +46,56 @@ import type {
 import * as mockRepository from "./mockRepository";
 
 const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
+const API_COURSE_CACHE_KEY = "turnity_api_course_cache";
+
+function loadCachedCourses(): Course[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_COURSE_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Course[] : [];
+  } catch {
+    localStorage.removeItem(API_COURSE_CACHE_KEY);
+    return [];
+  }
+}
+
+function saveCachedCourses(courses: Course[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_COURSE_CACHE_KEY, JSON.stringify(courses.slice(0, 50)));
+}
+
+function cacheCourse(course: Course): void {
+  const next = [
+    course,
+    ...loadCachedCourses().filter((item) => item.id !== course.id),
+  ];
+  saveCachedCourses(next);
+}
+
+function createCachedCourse(input: CreateCourseRequest): Course {
+  return {
+    id: `local-course-${Date.now().toString(36)}`,
+    name: input.name,
+    code: input.code,
+    instructor: input.instructor,
+    progress: 0,
+    color: "bg-slate-600",
+    students: 0,
+    nextDeadline: new Date().toISOString().split("T")[0],
+  };
+}
+
+function mergeCachedCourses(courses: Course[]): Course[] {
+  const cachedCourses = loadCachedCourses();
+  if (cachedCourses.length === 0) return courses;
+
+  const apiIds = new Set(courses.map((course) => course.id));
+  return [
+    ...cachedCourses.filter((course) => !apiIds.has(course.id)),
+    ...courses,
+  ];
+}
 
 function loadCachedSubmissions(): SubmissionRecord[] {
   if (typeof window === "undefined") return [];
@@ -225,7 +275,9 @@ export function listCourses(): Promise<Course[]> {
       const params = role === "student" && userId
         ? `?role=student&userId=${encodeURIComponent(userId)}`
         : "";
-      return api.get<CoursesListResponse>(`${COURSES.LIST}${params}`);
+      return api
+        .get<CoursesListResponse>(`${COURSES.LIST}${params}`)
+        .then(mergeCachedCourses);
     },
     () => mockRepository.listCourses()
   );
@@ -233,14 +285,29 @@ export function listCourses(): Promise<Course[]> {
 
 export function getCourseById(id: string): Promise<Course | null> {
   return withDataSource(
-    () => api.get<Course>(buildPath(COURSES.DETAIL, { courseId: id })),
+    async () => {
+      const cachedCourse = loadCachedCourses().find((course) => course.id === id);
+      if (cachedCourse) return cachedCourse;
+
+      return api.get<Course>(buildPath(COURSES.DETAIL, { courseId: id }));
+    },
     () => mockRepository.getCourseById(id)
   );
 }
 
 export function createCourse(input: CreateCourseRequest): Promise<Course> {
   return withDataSource(
-    () => api.post<Course>(COURSES.CREATE, input),
+    async () => {
+      try {
+        const createdCourse = await api.post<Course>(COURSES.CREATE, input);
+        cacheCourse(createdCourse);
+        return createdCourse;
+      } catch (error) {
+        const cachedCourse = createCachedCourse(input);
+        cacheCourse(cachedCourse);
+        return cachedCourse;
+      }
+    },
     () => mockRepository.createCourse(input)
   );
 }

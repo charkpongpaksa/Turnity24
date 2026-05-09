@@ -34,6 +34,7 @@ export function AllCourses() {
   const [localCourses, setLocalCourses] = useState(courses);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
+  const [creatingCourse, setCreatingCourse] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editInstructor, setEditInstructor] = useState("");
@@ -93,15 +94,27 @@ export function AllCourses() {
       return;
     }
 
-    const createdCourse = await createCourse({
-      name: editName,
-      code: editCode,
-      instructor: editInstructor,
-    });
-    setLocalCourses((current) => [createdCourse, ...current]);
-    toast.success("Course created");
-    setShowCreateCourseModal(false);
-    setEditInstructor("");
+    setCreatingCourse(true);
+    try {
+      const createdCourse = await createCourse({
+        name: editName.trim(),
+        code: editCode.trim(),
+        instructor: editInstructor.trim(),
+      });
+      setLocalCourses((current) => [
+        createdCourse,
+        ...current.filter((course) => course.id !== createdCourse.id),
+      ]);
+      toast.success("Course created");
+      setShowCreateCourseModal(false);
+      setEditName("");
+      setEditCode("");
+      setEditInstructor("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to create course");
+    } finally {
+      setCreatingCourse(false);
+    }
   };
 
   const handleDeleteCourse = async (courseId: string) => {
@@ -346,11 +359,19 @@ export function AllCourses() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateCourseModal(false)}>
+            <Button
+              variant="outline"
+              disabled={creatingCourse}
+              onClick={() => setShowCreateCourseModal(false)}
+            >
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreateCourse}>
-              Create Course
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={creatingCourse}
+              onClick={handleCreateCourse}
+            >
+              {creatingCourse ? "Creating..." : "Create Course"}
             </Button>
           </DialogFooter>
         </DialogContent>
