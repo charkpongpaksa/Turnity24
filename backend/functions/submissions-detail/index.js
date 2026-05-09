@@ -11,7 +11,7 @@ import { listSubmissions } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {
-    await requireAuthenticatedUser(event);
+    const user = await requireAuthenticatedUser(event);
     
     const { assignmentId, submissionId } = event.pathParameters || {};
 
@@ -26,6 +26,11 @@ export async function handler(event) {
     
     if (!result) {
       return notFound("Submission not found");
+    }
+    
+    // Students can only access their own submissions
+    if (user.role === "student" && result.studentId !== user.id) {
+      return forbidden("Access denied");
     }
     
     return ok(result);

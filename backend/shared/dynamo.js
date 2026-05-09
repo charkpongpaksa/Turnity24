@@ -143,147 +143,214 @@ async function ensureBootstrapData() {
     const seedStudentId = "student-demo";
     const seedInstructorId = "instructor-demo";
 
-    const existingCourse = await client.send(
-      new GetCommand({
-        TableName: tableName,
-        Key: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: "META#course",
-        },
-      })
-    );
-
-    if (existingCourse.Item) return;
-
     const timestamp = now();
+    const seedCourseKey = {
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${seedCourseId}`,
+        SK: "META#course",
+      },
+    };
 
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: "META#course",
-          GSI1PK: `COURSE#${seedCourseId}`,
-          GSI1SK: "META#course",
-          id: seedCourseId,
-          name: "Cloud Systems Design",
-          code: "CS440",
-          instructor: "Lecturer Demo",
-          progress: 0,
-          color: "bg-slate-600",
-          students: 1,
-          nextDeadline: today(),
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      })
+    const existingCourse = await client.send(new GetCommand(seedCourseKey));
+
+    const courseItem = {
+      PK: `COURSE#${seedCourseId}`,
+      SK: "META#course",
+      GSI1PK: `COURSE#${seedCourseId}`,
+      GSI1SK: "META#course",
+      id: seedCourseId,
+      name: "Cloud Systems Design",
+      code: "CS440",
+      instructor: "Lecturer Demo",
+      progress: 0,
+      color: "bg-slate-600",
+      students: 1,
+      nextDeadline: today(),
+      createdAt: existingCourse.Item ? existingCourse.Item.createdAt : timestamp,
+      updatedAt: timestamp,
+    };
+
+    if (!existingCourse.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: courseItem,
+        })
+      );
+    }
+
+    const studentMembershipKey = {
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${seedCourseId}`,
+        SK: `STUDENT#${seedStudentId}`,
+      },
+    };
+
+    const existingStudentMembership = await client.send(
+      new GetCommand(studentMembershipKey)
     );
 
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: `STUDENT#${seedStudentId}`,
-          GSI1PK: `STUDENT#${seedStudentId}`,
-          GSI1SK: `COURSE#${seedCourseId}`,
-          studentId: seedStudentId,
-          name: "Student Demo",
-          email: "student.demo@turnity.local",
-          role: "student",
-          joinedAt: timestamp,
-        },
-      })
+    if (!existingStudentMembership.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: `COURSE#${seedCourseId}`,
+            SK: `STUDENT#${seedStudentId}`,
+            GSI1PK: `STUDENT#${seedStudentId}`,
+            GSI1SK: `COURSE#${seedCourseId}`,
+            studentId: seedStudentId,
+            name: "Student Demo",
+            email: "student.demo@turnity.local",
+            role: "student",
+            joinedAt: timestamp,
+          },
+        })
+      );
+    }
+
+    const announcementKey = {
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${seedCourseId}`,
+        SK: "ANN#seed-ann-1",
+      },
+    };
+
+    const existingAnnouncement = await client.send(
+      new GetCommand(announcementKey)
     );
 
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: "ANN#seed-ann-1",
-          id: "seed-ann-1",
-          courseId: seedCourseId,
-          title: "Welcome to Turnity",
-          content: "This is the starter announcement for your demo course.",
-          author: "Lecturer Demo",
-          pinned: true,
-          timestamp,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      })
+    if (!existingAnnouncement.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: `COURSE#${seedCourseId}`,
+            SK: "ANN#seed-ann-1",
+            id: "seed-ann-1",
+            courseId: seedCourseId,
+            title: "Welcome to Turnity",
+            content: "This is the starter announcement for your demo course.",
+            author: "Lecturer Demo",
+            pinned: true,
+            timestamp,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        })
+      );
+    }
+
+    const assignmentKey = {
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${seedCourseId}`,
+        SK: "ASS#seed-assignment-1",
+      },
+    };
+
+    const existingAssignment = await client.send(new GetCommand(assignmentKey));
+
+    if (!existingAssignment.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: `COURSE#${seedCourseId}`,
+            SK: "ASS#seed-assignment-1",
+            id: "seed-assignment-1",
+            courseId: seedCourseId,
+            title: "Architecture Proposal",
+            description: "Submit your initial cloud architecture proposal.",
+            dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+            status: "not_submitted",
+            type: "file",
+            points: 100,
+            latePolicy: "10% deduction per day late",
+            attachments: [],
+            submissions: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        })
+      );
+    }
+
+    const discussionKey = {
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${seedCourseId}`,
+        SK: "DISC#seed-discussion-1",
+      },
+    };
+
+    const existingDiscussion = await client.send(new GetCommand(discussionKey));
+
+    if (!existingDiscussion.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: `COURSE#${seedCourseId}`,
+            SK: "DISC#seed-discussion-1",
+            id: "seed-discussion-1",
+            courseId: seedCourseId,
+            author: "Lecturer Demo",
+            authorAvatar: "",
+            title: "Course kickoff",
+            content: "Introduce yourself and share what you want from this course.",
+            timestamp,
+            likes: 0,
+            replies: 0,
+            authorId: seedInstructorId,
+            authorRole: "instructor",
+            likedBy: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        })
+      );
+    }
+
+    const notificationKey = {
+      TableName: tableName,
+      Key: {
+        PK: `USER#${seedStudentId}`,
+        SK: "NOTIFY#seed-notify-1",
+      },
+    };
+
+    const existingNotification = await client.send(
+      new GetCommand(notificationKey)
     );
 
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: "ASS#seed-assignment-1",
-          id: "seed-assignment-1",
-          courseId: seedCourseId,
-          title: "Architecture Proposal",
-          description: "Submit your initial cloud architecture proposal.",
-          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-          status: "not_submitted",
-          type: "file",
-          points: 100,
-          latePolicy: "10% deduction per day late",
-          attachments: [],
-          submissions: [],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      })
-    );
-
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `COURSE#${seedCourseId}`,
-          SK: "DISC#seed-discussion-1",
-          id: "seed-discussion-1",
-          courseId: seedCourseId,
-          author: "Lecturer Demo",
-          authorAvatar: "",
-          title: "Course kickoff",
-          content: "Introduce yourself and share what you want from this course.",
-          timestamp,
-          likes: 0,
-          replies: 0,
-          authorId: seedInstructorId,
-          authorRole: "instructor",
-          likedBy: [],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      })
-    );
-
-    await client.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: {
-          PK: `USER#${seedStudentId}`,
-          SK: `NOTIFY#${timestamp}`,
-          GSI1PK: "NOTIFICATION#seed-notify-1",
-          GSI1SK: `USER#${seedStudentId}`,
-          id: "seed-notify-1",
-          studentId: seedStudentId,
-          type: "reminder",
-          title: "Upcoming assignment",
-          message: "Architecture Proposal is due in 7 days.",
-          timestamp,
-          urgent: false,
-          read: false,
-          link: `/course/${seedCourseId}/assignment/seed-assignment-1`,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
-      })
-    );
+    if (!existingNotification.Item) {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: `USER#${seedStudentId}`,
+            SK: "NOTIFY#seed-notify-1",
+            GSI1PK: "NOTIFICATION#seed-notify-1",
+            GSI1SK: `USER#${seedStudentId}`,
+            id: "seed-notify-1",
+            studentId: seedStudentId,
+            type: "reminder",
+            title: "Upcoming assignment",
+            message: "Architecture Proposal is due in 7 days.",
+            timestamp,
+            urgent: false,
+            read: false,
+            link: `/course/${seedCourseId}/assignment/seed-assignment-1`,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        })
+      );
+    }
   })();
 
   return bootstrapPromise;
@@ -347,6 +414,7 @@ export async function listCoursesByStudent(studentId) {
 }
 
 export async function getCourseById(courseId) {
+  await ensureBootstrapData();
   if (!courseId) return null;
 
   const response = await client.send(
@@ -601,6 +669,8 @@ export async function listAssignments(courseId) {
 }
 
 export async function getAssignmentById(courseId, assignmentId) {
+  await ensureBootstrapData();
+
   const response = await client.send(
     new GetCommand({
       TableName: tableName,
@@ -921,6 +991,8 @@ export async function listDiscussions(courseId) {
 }
 
 export async function getDiscussionById(courseId, discussionId) {
+  await ensureBootstrapData();
+
   const response = await client.send(
     new GetCommand({
       TableName: tableName,

@@ -22,11 +22,14 @@ import { toast } from "sonner";
 export function AssignmentDetail() {
   const { courseId, assignmentId } = useParams();
   const navigate = useNavigate();
-  const { data: course, loading: courseLoading } = useAsyncData(
+
+  console.log("AssignmentDetail rendered with params:", { courseId, assignmentId });
+
+  const { data: course, loading: courseLoading, error: courseError } = useAsyncData(
     () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
     [courseId]
   );
-  const { data: assignment, loading: assignmentLoading } = useAsyncData(
+  const { data: assignment, loading: assignmentLoading, error: assignmentError } = useAsyncData(
     () =>
       courseId && assignmentId
         ? getAssignmentById(courseId, assignmentId)
@@ -34,12 +37,22 @@ export function AssignmentDetail() {
     [courseId, assignmentId]
   );
 
+  console.log("AssignmentDetail data:", { course, assignment, courseError, assignmentError });
+
   if (courseLoading || assignmentLoading) {
     return <div className="p-6">Loading assignment...</div>;
   }
 
   if (!course || !assignment) {
-    return <div className="p-6">Assignment not found</div>;
+    return (
+      <div className="p-6">
+        {courseError?.message || assignmentError?.message ? (
+          <div className="text-red-600">Error: {courseError?.message || assignmentError?.message}</div>
+        ) : (
+          "Assignment not found"
+        )}
+      </div>
+    );
   }
 
   const getDaysUntil = (dueDate: string) => {

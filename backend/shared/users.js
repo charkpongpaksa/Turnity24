@@ -124,15 +124,14 @@ export async function ensureLocalAccountsSeeded() {
   await Promise.all(
     LOCAL_TEST_ACCOUNTS.map(async (account) => {
       const existing = await getUserById(account.userId);
-      if (existing) return existing;
-
       const timestamp = now();
+
       return saveUser({
         ...account,
         passwordHash: hashPassword(account.password),
-        createdAt: timestamp,
+        createdAt: existing?.createdAt || timestamp,
         updatedAt: timestamp,
-        lastLoginAt: null,
+        lastLoginAt: existing?.lastLoginAt ?? null,
       });
     })
   );

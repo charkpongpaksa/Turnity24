@@ -11,7 +11,11 @@ import { authSessionStore } from "./auth.storage";
 import { buildAuthSession } from "./auth.utils";
 
 function createMockProfile(username: string): TuApiProfile {
-  const normalized = username.trim().toLowerCase();
+  const normalizedRaw = username.trim().toLowerCase();
+  const normalized = normalizedRaw.includes("@")
+    ? normalizedRaw.split("@")[0]
+    : normalizedRaw;
+
   const isInstructor =
     normalized.startsWith("emp") ||
     normalized.startsWith("teacher") ||
@@ -28,7 +32,7 @@ function createMockProfile(username: string): TuApiProfile {
       displayname_en: "Lecturer Demo",
       StatusWork: "1",
       StatusEmp: "ปกติ",
-      email: `${username}@tu.ac.th`,
+      email: `${normalizedRaw.includes("@") ? normalizedRaw : `${username}@tu.ac.th`}`,
       department: "Computer Science",
       organization: "Thammasat University",
     };
@@ -43,7 +47,7 @@ function createMockProfile(username: string): TuApiProfile {
     statusid: "10",
     displayname_th: "นักศึกษา ทดสอบ",
     displayname_en: "Student Demo",
-    email: `${username}@dome.tu.ac.th`,
+    email: `${normalizedRaw.includes("@") ? normalizedRaw : `${username}@dome.tu.ac.th`}`,
     department: "Computer Science",
     faculty: "Faculty of Science and Technology",
   };
