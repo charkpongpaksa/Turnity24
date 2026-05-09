@@ -15,9 +15,29 @@ import {
   Trash2
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
-import { deleteFile, getAssignmentById, getCourseById } from "@/lib/data/repository";
+import {
+  deleteFile,
+  getAssignmentById,
+  getCourseById,
+  requestPresignedDownload,
+} from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { appConfig } from "@/lib/config/env";
 import { toast } from "sonner";
+
+const LOCAL_SUBMISSION_PREVIEW_PREFIX = "turnity_submission_preview:";
+
+function buildCdnFileUrl(fileKey: string): string | null {
+  const baseUrl = appConfig.cdnBaseUrl;
+  if (!baseUrl || /x{4,}/i.test(baseUrl)) return null;
+
+  const encodedKey = fileKey
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  return `${baseUrl.replace(/\/$/, "")}/${encodedKey}`;
+}
 
 export function AssignmentDetail() {
   const { courseId, assignmentId } = useParams();
@@ -67,6 +87,48 @@ export function AssignmentDetail() {
 
   const isOverdue = new Date(assignment.dueDate) < new Date();
   const hasSubmitted = assignment.submissions.length > 0;
+
+  const openSubmittedFile = async (fileKey?: string | null) => {
+    if (!fileKey) {
+      toast.error("No file is attached to this submission");
+      return;
+    }
+
+    const localPreviewUrl =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem(`${LOCAL_SUBMISSION_PREVIEW_PREFIX}${fileKey}`)
+        : null;
+
+    if (localPreviewUrl) {
+      window.open(localPreviewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (/^https?:\/\//i.test(fileKey)) {
+      window.open(fileKey, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const cdnUrl = buildCdnFileUrl(fileKey);
+    if (cdnUrl) {
+      window.open(cdnUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      const { downloadUrl } = await requestPresignedDownload(fileKey);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message !== "Failed to fetch"
+          ? error.message
+          : "Download API is not deployed yet. Deploy backend or resubmit this file to preview it in this browser session.";
+
+      toast.error(
+        message
+      );
+    }
+  };
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
@@ -157,28 +219,42 @@ export function AssignmentDetail() {
                         <span>Submitted: {new Date(submission.submittedAt).toLocaleString()}</span>
                       </div>
                       {submission.files.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-2 text-gray-700">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            <span>{file}</span>
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-3 text-gray-700"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{file}</span>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={async () => {
-                              if (confirm(`Delete ${file}?`)) {
-                                const success = await deleteFile(file);
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openSubmittedFile(submission.fileUrl)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={async () => {
+                                if (!confirm(`Delete ${file}?`)) return;
+                                const success = await deleteFile(submission.fileUrl || file);
                                 if (success) {
                                   toast.success("File deleted from storage");
                                 } else {
                                   toast.error("Failed to delete file");
                                 }
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -91,12 +91,21 @@ function mergeSubmissionRecords(
     status: latestSubmission?.status ?? assignment.status,
     submissions: submissions
       .filter((submission) => submission.submittedAt)
-      .map((submission) => ({
-        submittedAt: submission.submittedAt ?? new Date().toISOString(),
-        files: submission.fileName ? [submission.fileName] : [],
-        feedback: submission.feedback || "Pending review",
-        score: submission.score,
-      })),
+      .map((submission) => {
+        const displayFileName =
+          submission.fileName ??
+          (submission.fileUrl ? submission.fileUrl.split("/").pop() : undefined);
+
+        return {
+          submittedAt: submission.submittedAt ?? new Date().toISOString(),
+          files: displayFileName ? [displayFileName] : [],
+          fileUrl: submission.fileUrl ?? null,
+          fileName: displayFileName ?? null,
+          text: submission.text ?? "",
+          feedback: submission.feedback || "Pending review",
+          score: submission.score,
+        };
+      }),
   };
 }
 

@@ -432,19 +432,6 @@ Resources:
             Path: /courses/{courseId}/assignments/{assignmentId}
             Method: DELETE
 
-  AssignmentsUpdateFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/assignments-update/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        AssignmentsUpdate:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/assignments/{assignmentId}
-            Method: PUT
-
   AnnouncementsUpdateFunction:
     Type: AWS::Serverless::Function
     Properties:

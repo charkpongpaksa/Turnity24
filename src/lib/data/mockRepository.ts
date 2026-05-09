@@ -532,6 +532,9 @@ export async function createSubmission(
             {
               submittedAt,
               files: fileName ? [fileName] : [],
+              fileUrl: input.fileUrl ?? null,
+              fileName: fileName ?? null,
+              text: input.text ?? "",
               feedback: "Pending review",
               score: null,
             },

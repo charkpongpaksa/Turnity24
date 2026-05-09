@@ -22,6 +22,8 @@ import { uploadToS3 } from "@/lib/apiClient";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
 import { toast } from "sonner";
 
+const LOCAL_SUBMISSION_PREVIEW_PREFIX = "turnity_submission_preview:";
+
 export function AssignmentSubmission() {
   const { courseId, assignmentId } = useParams();
   const navigate = useNavigate();
@@ -103,6 +105,10 @@ export function AssignmentSubmission() {
         }
         fileUrl = fileKey;
         fileName = file.name;
+        if (typeof window !== "undefined") {
+          const previewUrl = URL.createObjectURL(file);
+          sessionStorage.setItem(`${LOCAL_SUBMISSION_PREVIEW_PREFIX}${fileKey}`, previewUrl);
+        }
       } else if (submissionType === "text") {
         text = textContent;
       } else if (submissionType === "link") {

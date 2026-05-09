@@ -23,6 +23,9 @@ export type AssignmentAttachment = {
 export type Submission = {
   submittedAt: string;
   files: string[];
+  fileUrl?: string | null;
+  fileName?: string | null;
+  text?: string;
   feedback: string;
   score: number | null;
 };
