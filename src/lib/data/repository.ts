@@ -48,6 +48,7 @@ import * as mockRepository from "./mockRepository";
 const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
 const API_COURSE_CACHE_KEY = "turnity_api_course_cache";
 const API_COURSE_STUDENT_CACHE_KEY = "turnity_api_course_student_cache";
+const API_ASSIGNMENT_CACHE_KEY = "turnity_api_assignment_cache";
 
 const DEMO_STUDENT: Student = {
   id: "student-demo",
@@ -90,6 +91,63 @@ function saveCachedCourseStudents(cache: Record<string, Student[]>): void {
   localStorage.setItem(API_COURSE_STUDENT_CACHE_KEY, JSON.stringify(cache));
 }
 
+function loadCachedAssignments(): Assignment[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_ASSIGNMENT_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Assignment[] : [];
+  } catch {
+    localStorage.removeItem(API_ASSIGNMENT_CACHE_KEY);
+    return [];
+  }
+}
+
+function saveCachedAssignments(assignments: Assignment[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_ASSIGNMENT_CACHE_KEY, JSON.stringify(assignments.slice(0, 100)));
+}
+
+function cacheAssignment(assignment: Assignment): void {
+  const next = [
+    assignment,
+    ...loadCachedAssignments().filter((item) => item.id !== assignment.id),
+  ];
+  saveCachedAssignments(next);
+}
+
+function createCachedAssignment(
+  courseId: string,
+  input: CreateAssignmentRequest
+): Assignment {
+  return {
+    id: `local-assignment-${Date.now().toString(36)}`,
+    courseId,
+    title: input.title,
+    description: input.description,
+    dueDate: input.dueDate,
+    status: input.status ?? "not_submitted",
+    type: input.type,
+    points: input.points,
+    latePolicy: input.latePolicy,
+    attachments: input.attachments,
+    submissions: [],
+  };
+}
+
+function mergeCachedAssignments(assignments: Assignment[], courseId?: string): Assignment[] {
+  const cachedAssignments = loadCachedAssignments().filter(
+    (assignment) => !courseId || assignment.courseId === courseId
+  );
+  if (cachedAssignments.length === 0) return assignments;
+
+  const apiIds = new Set(assignments.map((assignment) => assignment.id));
+  return [
+    ...cachedAssignments.filter((assignment) => !apiIds.has(assignment.id)),
+    ...assignments,
+  ];
+}
+
 function updateCachedCourseStudentCount(courseId: string, studentCount: number): void {
   const nextCourses = loadCachedCourses().map((course) =>
     course.id === courseId ? { ...course, students: studentCount } : course
@@ -107,6 +165,9 @@ function cacheCourse(course: Course): void {
 
 function removeCachedCourse(courseId: string): void {
   saveCachedCourses(loadCachedCourses().filter((course) => course.id !== courseId));
+  saveCachedAssignments(
+    loadCachedAssignments().filter((assignment) => assignment.courseId !== courseId)
+  );
   const studentCache = loadCachedCourseStudents();
   delete studentCache[courseId];
   saveCachedCourseStudents(studentCache);
@@ -401,20 +462,23 @@ export function listAssignments(courseId?: string): Promise<Assignment[]> {
             )
           )
         );
-        return mergeApiSubmissions(assignments.flat());
+        return mergeApiSubmissions(mergeCachedAssignments(assignments.flat()));
       },
-      () => mockRepository.listAssignments()
+      async () => mergeCachedAssignments(await mockRepository.listAssignments())
     );
   }
 
   return withDataSource(
     async () =>
       mergeApiSubmissions(
-        await api.get<AssignmentsListResponse>(
-          buildPath(ASSIGNMENTS.LIST, { courseId })
+        mergeCachedAssignments(
+          await api.get<AssignmentsListResponse>(
+            buildPath(ASSIGNMENTS.LIST, { courseId })
+          ),
+          courseId
         )
       ),
-    () => mockRepository.listAssignments(courseId)
+    async () => mergeCachedAssignments(await mockRepository.listAssignments(courseId), courseId)
   );
 }
 
@@ -423,7 +487,14 @@ export function getAssignmentById(
   assignmentId: string
 ): Promise<Assignment | null> {
   return withDataSource(
-    () => getAssignmentWithSubmissions(courseId, assignmentId),
+    async () => {
+      const cachedAssignment = loadCachedAssignments().find(
+        (assignment) => assignment.id === assignmentId && assignment.courseId === courseId
+      );
+      if (cachedAssignment) return cachedAssignment;
+
+      return getAssignmentWithSubmissions(courseId, assignmentId);
+    },
     () => mockRepository.getAssignmentById(assignmentId)
   );
 }
@@ -433,7 +504,26 @@ export function createAssignment(
   input: CreateAssignmentRequest
 ): Promise<Assignment> {
   return withDataSource(
-    () => api.post<Assignment>(buildPath(ASSIGNMENTS.CREATE, { courseId }), input),
+    async () => {
+      if (courseId.startsWith("local-course-")) {
+        const cachedAssignment = createCachedAssignment(courseId, input);
+        cacheAssignment(cachedAssignment);
+        return cachedAssignment;
+      }
+
+      try {
+        const createdAssignment = await api.post<Assignment>(
+          buildPath(ASSIGNMENTS.CREATE, { courseId }),
+          input
+        );
+        cacheAssignment(createdAssignment);
+        return createdAssignment;
+      } catch {
+        const cachedAssignment = createCachedAssignment(courseId, input);
+        cacheAssignment(cachedAssignment);
+        return cachedAssignment;
+      }
+    },
     () => mockRepository.createAssignment(courseId, input)
   );
 }
