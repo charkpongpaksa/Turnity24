@@ -4,9 +4,9 @@ import {
   ok,
   parseBody,
   unauthorized,
-} from "./shared/http.js";
-import { createAccessToken, createRefreshToken, parseRefreshToken } from "./shared/auth.js";
-import { getUserById } from "./shared/users.js";
+} from "../../shared/http.js";
+import { createAccessToken, createRefreshToken, parseRefreshToken } from "../../shared/auth.js";
+import { getUserById } from "../../shared/users.js";
 
 export async function handler(event) {
   try {

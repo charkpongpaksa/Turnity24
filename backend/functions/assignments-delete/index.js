@@ -4,9 +4,9 @@ import {
   internalError,
   ok,
   unauthorized,
-} from "./shared/http.js";
-import { requireRole } from "./shared/auth.js";
-import { deleteAssignment } from "./shared/dynamo.js";
+} from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
+import { deleteAssignment } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {

@@ -89,6 +89,17 @@ Recommended answers:
 - Allow SAM CLI IAM role creation: `Y`
 - Save arguments to configuration file: `Y`
 
+Important parameters to provide during `sam deploy --guided`:
+
+- `CorsOrigin`
+  Suggested local/dev value: `http://localhost:5173`
+- `AuthTokenSecret`
+  Use a long random string
+- `LocalAuthSalt`
+  Use another long random string
+- `TuApiApplicationKey`
+  Leave blank only if you are testing local accounts first
+
 After the first guided deploy:
 
 ```bash
@@ -138,3 +149,9 @@ After successful deploy, continue in this order:
 3. test instructor create course + add placeholder student flow
 4. connect the frontend to API mode end-to-end
 5. add stronger authorization checks and production token handling
+
+## 9. Regression checklist
+
+Before demo or API-mode testing, run through:
+
+- [Regression Checklist](./REGRESSION_CHECKLIST.md)

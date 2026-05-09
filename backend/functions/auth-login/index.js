@@ -4,8 +4,8 @@ import {
   ok,
   unauthorized,
   parseBody,
-} from "./shared/http.js";
-import { authenticateUser, createAccessToken, createRefreshToken } from "./shared/auth.js";
+} from "../../shared/http.js";
+import { authenticateUser, createAccessToken, createRefreshToken } from "../../shared/auth.js";
 
 export async function handler(event) {
   try {

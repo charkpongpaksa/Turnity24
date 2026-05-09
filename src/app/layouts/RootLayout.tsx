@@ -8,6 +8,9 @@ import {
   Menu,
   X,
   FileText,
+  User,
+  LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -66,6 +69,7 @@ export function RootLayout() {
   const instructorNavItems = [
     { icon: Home, label: "Dashboard", path: "/instructor", key: "instructor-dashboard" },
     { icon: BookOpen, label: "My Courses", path: "/instructor/courses", key: "instructor-courses" },
+    { icon: BarChart3, label: "Analytics", path: "/instructor/analytics", key: "instructor-analytics" },
   ];
 
   const navItems = isInstructorView ? instructorNavItems : studentNavItems;
@@ -313,6 +317,10 @@ export function RootLayout() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>{session?.user.email}</DropdownMenuItem>
                 <DropdownMenuItem>{session?.user.role}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile Dashboard</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={isLoggingOut}

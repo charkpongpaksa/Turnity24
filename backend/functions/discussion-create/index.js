@@ -1,12 +1,12 @@
-import { requireAuthenticatedUser } from "./shared/auth.js";
-import { createDiscussion } from "./shared/dynamo.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
+import { createDiscussion } from "../../shared/dynamo.js";
 import {
   badRequest,
   created,
   internalError,
   parseBody,
   unauthorized,
-} from "./shared/http.js";
+} from "../../shared/http.js";
 
 export const handler = async (event) => {
   try {

@@ -1,6 +1,6 @@
-import { ok, badRequest, internalError, unauthorized } from "./shared/http.js";
-import { listCourses, listCoursesByStudent } from "./shared/dynamo.js";
-import { requireAuthenticatedUser } from "./shared/auth.js";
+import { ok, badRequest, internalError, unauthorized } from "../../shared/http.js";
+import { listCourses, listCoursesByStudent } from "../../shared/dynamo.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
 
 export async function handler(event) {
   try {

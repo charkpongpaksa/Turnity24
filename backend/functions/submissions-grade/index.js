@@ -5,9 +5,9 @@ import {
   ok,
   parseBody,
   unauthorized,
-} from "./shared/http.js";
-import { requireRole } from "./shared/auth.js";
-import { gradeSubmissionBySubmissionId } from "./shared/dynamo.js";
+} from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
+import { gradeSubmissionBySubmissionId } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {

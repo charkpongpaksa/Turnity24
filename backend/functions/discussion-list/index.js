@@ -1,5 +1,5 @@
-import { listDiscussions } from "./shared/dynamo.js";
-import { ok, internalError } from "./shared/http.js";
+import { listDiscussions } from "../../shared/dynamo.js";
+import { ok, internalError } from "../../shared/http.js";
 
 export const handler = async (event) => {
   try {

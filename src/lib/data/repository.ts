@@ -1,5 +1,6 @@
 import { api } from "@/lib/apiClient";
 import {
+  ANALYTICS,
   ANNOUNCEMENTS,
   ASSIGNMENTS,
   AUTH,
@@ -136,6 +137,20 @@ export function updateCourse(
   );
 }
 
+export function deleteCourse(courseId: string): Promise<boolean> {
+  return withDataSource(
+    () => api.delete<void>(buildPath(COURSES.DELETE, { courseId })).then(() => true),
+    () => mockRepository.deleteCourse(courseId)
+  );
+}
+
+export function enrollInCourse(courseId: string): Promise<boolean> {
+  return withDataSource(
+    () => api.post<void>(buildPath(COURSES.ENROLL, { courseId }), {}).then(() => true),
+    () => mockRepository.enrollInCourse(courseId)
+  );
+}
+
 export function listAssignments(courseId?: string): Promise<Assignment[]> {
   if (!courseId) {
     return withDataSource(
@@ -258,6 +273,19 @@ export function updateAnnouncement(
   );
 }
 
+export function deleteAnnouncement(
+  courseId: string,
+  announcementId: string
+): Promise<boolean> {
+  return withDataSource(
+    () =>
+      api.delete<void>(
+        buildPath(ANNOUNCEMENTS.DELETE, { courseId, announcementId })
+      ).then(() => true),
+    () => mockRepository.deleteAnnouncement(courseId, announcementId)
+  );
+}
+
 export function listNotifications(): Promise<Notification[]> {
   return withDataSource(
     () => {
@@ -338,6 +366,16 @@ export function deleteDiscussion(
         buildPath(DISCUSSIONS.DELETE, { courseId, discussionId })
       ).then(() => true),
     () => mockRepository.deleteDiscussion(courseId, discussionId)
+  );
+}
+
+export function getDiscussionDetail(
+  courseId: string,
+  discussionId: string
+): Promise<Discussion | null> {
+  return withDataSource(
+    () => api.get<Discussion>(buildPath(DISCUSSIONS.DETAIL, { courseId, discussionId })),
+    () => mockRepository.getDiscussionDetail(courseId, discussionId)
   );
 }
 
@@ -476,6 +514,13 @@ export function requestPresignedDownload(
   );
 }
 
+export function deleteFile(fileKey: string): Promise<boolean> {
+  return withDataSource(
+    () => api.delete<void>(buildPath(FILES.DELETE, { fileKey })).then(() => true),
+    async () => true
+  );
+}
+
 export function createSubmission(
   courseId: string,
   assignmentId: string,
@@ -495,6 +540,51 @@ export function getCurrentUser(): Promise<CurrentUser> {
   return withDataSource(
     () => api.get<CurrentUser>(AUTH.ME),
     () => mockRepository.getCurrentUser()
+  );
+}
+
+export function getProfile(): Promise<CurrentUser> {
+  return withDataSource(
+    () => api.get<CurrentUser>(USERS.PROFILE),
+    () => mockRepository.getProfile()
+  );
+}
+
+export function updateProfile(input: Partial<CurrentUser>): Promise<CurrentUser> {
+  return withDataSource(
+    () => api.put<CurrentUser>(USERS.PROFILE, input),
+    () => mockRepository.updateProfile(input)
+  );
+}
+
+export function uploadAvatar(
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; fileKey: string; avatarUrl: string }> {
+  return withDataSource(
+    () => api.post(USERS.PROFILE_AVATAR, { fileName, contentType }),
+    async () => ({
+      uploadUrl: "",
+      fileKey: "mock-avatar-key",
+      avatarUrl: "https://via.placeholder.com/150",
+    })
+  );
+}
+
+export function getCourseAnalytics(courseId: string): Promise<any> {
+  return withDataSource(
+    () => api.get(buildPath(ANALYTICS.COURSE, { courseId })),
+    () => mockRepository.getCourseAnalytics(courseId)
+  );
+}
+
+export function getAssignmentAnalytics(
+  courseId: string,
+  assignmentId: string
+): Promise<any> {
+  return withDataSource(
+    () => api.get(buildPath(ANALYTICS.ASSIGNMENT, { courseId, assignmentId })),
+    () => mockRepository.getAssignmentAnalytics(courseId, assignmentId)
   );
 }
 

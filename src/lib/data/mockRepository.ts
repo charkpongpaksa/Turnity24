@@ -562,3 +562,73 @@ export async function gradeSubmission(
 export async function getCurrentUser(): Promise<CurrentUser> {
   return currentUser;
 }
+
+export async function deleteCourse(courseId: string): Promise<boolean> {
+  courseState = courseState.filter((c) => c.id !== courseId);
+  courseEnrollments.delete(courseId);
+  persistAll();
+  return true;
+}
+
+export async function enrollInCourse(courseId: string): Promise<boolean> {
+  const studentIds = ensureCourseEnrollment(courseId);
+  if (!studentIds.includes(currentUser.id)) {
+    courseEnrollments.set(courseId, [...studentIds, currentUser.id]);
+    syncCourseStudentCount(courseId);
+    persistAll();
+  }
+  return true;
+}
+
+export async function deleteAnnouncement(
+  courseId: string,
+  announcementId: string
+): Promise<boolean> {
+  announcementState = announcementState.filter(
+    (a) => !(a.id === announcementId && a.courseId === courseId)
+  );
+  persistAll();
+  return true;
+}
+
+export async function getProfile(): Promise<CurrentUser> {
+  return clone(currentUser);
+}
+
+export async function updateProfile(input: Partial<CurrentUser>): Promise<CurrentUser> {
+  Object.assign(currentUser, input);
+  return clone(currentUser);
+}
+
+export async function getCourseAnalytics(courseId: string): Promise<any> {
+  const students = await listCourseStudents(courseId);
+  const assignments = await listAssignments(courseId);
+  return {
+    studentCount: students.length,
+    assignmentCount: assignments.length,
+    submissionCount: 15,
+    averageScore: 82.5,
+    completionRate: 94,
+  };
+}
+
+export async function getAssignmentAnalytics(
+  courseId: string,
+  assignmentId: string
+): Promise<any> {
+  return {
+    submissionCount: 28,
+    gradedCount: 25,
+    averageScore: 84.2,
+    highestScore: 100,
+    lowestScore: 65,
+    completionRate: 92.8,
+  };
+}
+
+export async function getDiscussionDetail(
+  courseId: string,
+  discussionId: string
+): Promise<Discussion | null> {
+  return discussionState.find(d => d.id === discussionId) ?? null;
+}

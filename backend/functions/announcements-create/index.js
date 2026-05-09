@@ -4,9 +4,9 @@ import {
   forbidden,
   internalError,
   unauthorized,
-} from "./shared/http.js";
-import { requireRole } from "./shared/auth.js";
-import { createAnnouncement } from "./shared/dynamo.js";
+} from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
+import { createAnnouncement } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {

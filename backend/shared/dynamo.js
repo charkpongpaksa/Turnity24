@@ -570,6 +570,20 @@ export async function updateAnnouncement(courseId, announcementId, input) {
   return mapAnnouncement(nextItem);
 }
 
+export async function deleteAnnouncement(courseId, announcementId) {
+  await client.send(
+    new DeleteCommand({
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${courseId}`,
+        SK: `ANN#${announcementId}`,
+      },
+    })
+  );
+
+  return {};
+}
+
 export async function listAssignments(courseId) {
   await ensureBootstrapData();
   const response = await client.send(
@@ -631,7 +645,59 @@ export async function createAssignment(courseId, input) {
   return mapAssignment(item);
 }
 
+export async function updateAssignment(courseId, assignmentId, input) {
+  const current = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: `COURSE#${courseId}`,
+        SK: `ASS#${assignmentId}`,
+      },
+    })
+  );
+
+  if (!current.Item) return null;
+
+  const nextItem = {
+    ...current.Item,
+    title: input.title ?? current.Item.title,
+    description: input.description ?? current.Item.description,
+    dueDate: input.dueDate ?? current.Item.dueDate,
+    status: input.status ?? current.Item.status,
+    type: input.type ?? current.Item.type,
+    points: input.points ?? current.Item.points,
+    latePolicy: input.latePolicy ?? current.Item.latePolicy,
+    attachments: input.attachments ?? current.Item.attachments,
+    updatedAt: now(),
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: nextItem,
+    })
+  );
+
+  return mapAssignment(nextItem);
+}
+
 export async function deleteAssignment(courseId, assignmentId) {
+  const submissions = await listSubmissions(assignmentId);
+
+  await Promise.all(
+    submissions.map((submission) =>
+      client.send(
+        new DeleteCommand({
+          TableName: tableName,
+          Key: {
+            PK: `ASS#${assignmentId}`,
+            SK: `SUBMISSION#${submission.id}`,
+          },
+        })
+      )
+    )
+  );
+
   await client.send(
     new DeleteCommand({
       TableName: tableName,
@@ -640,6 +706,80 @@ export async function deleteAssignment(courseId, assignmentId) {
         SK: `ASS#${assignmentId}`,
       },
     })
+  );
+
+  return {};
+}
+
+export async function deleteCourse(courseId) {
+  const courseItems = await client.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: "PK = :pk",
+      ExpressionAttributeValues: {
+        ":pk": `COURSE#${courseId}`,
+      },
+    })
+  );
+
+  const assignmentIds = (courseItems.Items || [])
+    .filter((item) => String(item.SK || "").startsWith("ASS#"))
+    .map((item) => item.id || String(item.SK).replace("ASS#", ""));
+
+  const discussionIds = (courseItems.Items || [])
+    .filter((item) => String(item.SK || "").startsWith("DISC#"))
+    .map((item) => item.id || String(item.SK).replace("DISC#", ""));
+
+  await Promise.all(
+    assignmentIds.map(async (assignmentId) => {
+      const submissions = await listSubmissions(assignmentId);
+      await Promise.all(
+        submissions.map((submission) =>
+          client.send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: `ASS#${assignmentId}`,
+                SK: `SUBMISSION#${submission.id}`,
+              },
+            })
+          )
+        )
+      );
+    })
+  );
+
+  await Promise.all(
+    discussionIds.map(async (discussionId) => {
+      const comments = await listComments(discussionId);
+      await Promise.all(
+        comments.map((comment) =>
+          client.send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: `DISC#${discussionId}`,
+                SK: `COMMENT#${comment.id}`,
+              },
+            })
+          )
+        )
+      );
+    })
+  );
+
+  await Promise.all(
+    (courseItems.Items || []).map((item) =>
+      client.send(
+        new DeleteCommand({
+          TableName: tableName,
+          Key: {
+            PK: item.PK,
+            SK: item.SK,
+          },
+        })
+      )
+    )
   );
 
   return {};
@@ -1027,4 +1167,80 @@ export async function markAllNotificationsRead(studentId) {
     notifications.map((notification) => markNotificationReadById(notification.id))
   );
   return {};
+}
+
+export async function getCourseAnalytics(courseId) {
+  const [students, assignments] = await Promise.all([
+    listCourseStudents(courseId),
+    listAssignments(courseId),
+  ]);
+
+  const submissionsByAssignment = await Promise.all(
+    assignments.map((assignment) => listSubmissions(assignment.id))
+  );
+
+  const allSubmissions = submissionsByAssignment.flat();
+  const gradedSubmissions = allSubmissions.filter(
+    (submission) => typeof submission.score === "number"
+  );
+
+  const completionRate =
+    students.length > 0 && assignments.length > 0
+      ? Math.round(
+          (allSubmissions.length / (students.length * assignments.length)) * 100
+        )
+      : 0;
+
+  const averageScore =
+    gradedSubmissions.length > 0
+      ? Number(
+          (
+            gradedSubmissions.reduce(
+              (total, submission) => total + Number(submission.score || 0),
+              0
+            ) / gradedSubmissions.length
+          ).toFixed(1)
+        )
+      : 0;
+
+  return {
+    studentCount: students.length,
+    assignmentCount: assignments.length,
+    submissionCount: allSubmissions.length,
+    averageScore,
+    completionRate,
+  };
+}
+
+export async function getAssignmentAnalytics(courseId, assignmentId) {
+  const [course, students, submissions] = await Promise.all([
+    getCourseById(courseId),
+    listCourseStudents(courseId),
+    listSubmissions(assignmentId),
+  ]);
+
+  if (!course) {
+    throw new Error("Course not found");
+  }
+
+  const gradedSubmissions = submissions.filter(
+    (submission) => typeof submission.score === "number"
+  );
+  const scores = gradedSubmissions.map((submission) => Number(submission.score || 0));
+  const completionRate =
+    students.length > 0
+      ? Number(((submissions.length / students.length) * 100).toFixed(1))
+      : 0;
+
+  return {
+    submissionCount: submissions.length,
+    gradedCount: gradedSubmissions.length,
+    averageScore:
+      scores.length > 0
+        ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1))
+        : 0,
+    highestScore: scores.length > 0 ? Math.max(...scores) : 0,
+    lowestScore: scores.length > 0 ? Math.min(...scores) : 0,
+    completionRate,
+  };
 }

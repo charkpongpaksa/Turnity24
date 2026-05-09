@@ -40,10 +40,18 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
 // ── Refresh logic ──────────────────────────────────────────────────
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshSubscribers: Array<{
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+}> = [];
 
 function onTokenRefreshed(token: string) {
-  refreshSubscribers.map((callback) => callback(token));
+  refreshSubscribers.forEach((subscriber) => subscriber.resolve(token));
+  refreshSubscribers = [];
+}
+
+function onRefreshFailed(error: Error) {
+  refreshSubscribers.forEach((subscriber) => subscriber.reject(error));
   refreshSubscribers = [];
 }
 
@@ -80,6 +88,9 @@ async function attemptRefresh(): Promise<string | null> {
     return data.accessToken;
   } catch (error) {
     authSessionStore.clear();
+    onRefreshFailed(
+      error instanceof Error ? error : new Error("Refresh token request failed")
+    );
     window.location.href = "/login";
     return null;
   }
@@ -129,9 +140,12 @@ async function request<T>(
           return request<T>(path, options);
         }
       } else {
-        return new Promise<T>((resolve) => {
-          refreshSubscribers.push((token: string) => {
-            resolve(request<T>(path, options));
+        return new Promise<T>((resolve, reject) => {
+          refreshSubscribers.push({
+            resolve: () => {
+              resolve(request<T>(path, options));
+            },
+            reject,
           });
         });
       }

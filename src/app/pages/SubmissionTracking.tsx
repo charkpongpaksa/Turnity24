@@ -247,24 +247,32 @@ export function SubmissionTracking() {
 
   const getSubmissionPreview = () => {
     if (!selectedSubmission?.submission) return null;
+    const submission = selectedSubmission.submission;
 
     if (assignment.type === "text") {
       return {
         title: "Text Submission",
-        body: `${selectedSubmission.name} submitted a written response for "${assignment.title}". This is a mock preview for frontend testing.`,
+        body:
+          submission.text?.trim() ||
+          `${selectedSubmission.name} submitted this assignment without inline text content.`,
       };
     }
 
     if (assignment.type === "link") {
       return {
         title: "Submitted Link",
-        body: `https://projects.example.edu/${selectedSubmission.name.toLowerCase().replace(/\s+/g, "-")}/${assignment.id}`,
+        body:
+          submission.fileUrl ||
+          submission.text ||
+          "No link was attached to this submission.",
       };
     }
 
     return {
       title: "Submitted Files",
-      body: `${selectedSubmission.name}_assignment_${assignment.id}.pdf\n${selectedSubmission.name}_appendix.zip`,
+      body:
+        [submission.fileName, submission.fileUrl].filter(Boolean).join("\n") ||
+        "No file metadata is available for this submission yet.",
     };
   };
 

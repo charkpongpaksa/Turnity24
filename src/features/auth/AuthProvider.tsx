@@ -22,6 +22,7 @@ type AuthContextValue = {
   login: (input: LoginFormInput) => Promise<AuthSession>;
   logout: () => Promise<void>;
   switchActiveRole: (role: "student" | "instructor") => void;
+  updateSession: (session: AuthSession) => void;
   homePath: string;
 };
 
@@ -60,6 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const nextSession = { ...current, activeRole: role };
           return nextSession;
         });
+      },
+      updateSession(nextSession) {
+        setSession(nextSession);
       },
       homePath: session ? getDefaultRouteForRole(session.activeRole) : "/login",
     }),

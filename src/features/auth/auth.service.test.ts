@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { tokenStore } from "@/lib/apiClient";
+import { authSessionStore } from "./auth.storage";
 
 vi.mock("@/lib/config/env", () => ({
   appConfig: {
@@ -48,6 +48,6 @@ describe("auth.service", () => {
     await logout();
 
     expect(restoreSession()).toBeNull();
-    expect(tokenStore.get()).toBeNull();
+    expect(authSessionStore.get()).toBeNull();
   });
 });

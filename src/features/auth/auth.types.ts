@@ -47,6 +47,7 @@ export type AuthUser = {
   tuType: TuApiAccountType;
   department: string;
   facultyOrOrganization: string;
+  avatarUrl?: string;
 };
 
 export type AuthSession = {

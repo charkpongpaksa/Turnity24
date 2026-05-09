@@ -148,6 +148,10 @@ aws s3 sync dist/ s3://<FrontendBucketName> --delete
 2. อัปเดต `VITE_CDN_BASE_URL` ใน `.env.local` ให้ตรงกับ CloudFront URL
 3. `npm run build` อีกครั้งแล้ว sync ขึ้น S3
 
+คู่มือเสริม:
+- [`docs/LEARNER_LAB_SAM_DEPLOY.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/docs/LEARNER_LAB_SAM_DEPLOY.md)
+- [`docs/REGRESSION_CHECKLIST.md`](/Users/chakphongpaksa/Documents/CSTU/CS332/Turnity24_7/Turnity_NEW/docs/REGRESSION_CHECKLIST.md)
+
 ---
 
 ## 🔐 Security Notes (สิ่งสำคัญ)
@@ -158,6 +162,18 @@ aws s3 sync dist/ s3://<FrontendBucketName> --delete
 | `LOCAL_AUTH_SALT` | ⚠️ Placeholder | เปลี่ยนใน AWS Lambda Console หรือ SSM Parameter Store |
 | `TU_API_APPLICATION_KEY` | ❌ ว่าง | ใส่ค่าจริงใน Lambda Console เพื่อเปิดใช้ TU Login |
 | CORS Origins | ✅ ตั้งค่าแล้ว | เปลี่ยน `https://turnity.tu.ac.th` เป็น domain จริงใน `template.yaml` |
+
+ตอน deploy ด้วย SAM ควรส่งค่าพวกนี้ผ่าน parameter เช่น:
+
+```bash
+sam deploy --guided
+```
+
+แล้วกำหนดค่า:
+- `CorsOrigin`
+- `AuthTokenSecret`
+- `LocalAuthSalt`
+- `TuApiApplicationKey`
 
 ---
 

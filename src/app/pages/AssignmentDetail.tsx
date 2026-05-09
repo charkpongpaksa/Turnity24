@@ -11,11 +11,13 @@ import {
   CheckCircle,
   AlertTriangle,
   Calendar,
-  Upload
+  Upload,
+  Trash2
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
-import { getAssignmentById, getCourseById } from "@/lib/data/repository";
+import { deleteFile, getAssignmentById, getCourseById } from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { toast } from "sonner";
 
 export function AssignmentDetail() {
   const { courseId, assignmentId } = useParams();
@@ -142,9 +144,28 @@ export function AssignmentDetail() {
                         <span>Submitted: {new Date(submission.submittedAt).toLocaleString()}</span>
                       </div>
                       {submission.files.map((file, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-gray-700">
-                          <FileText className="h-4 w-4" />
-                          <span>{file}</span>
+                        <div key={idx} className="flex items-center justify-between gap-2 text-gray-700">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            <span>{file}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={async () => {
+                              if (confirm(`Delete ${file}?`)) {
+                                const success = await deleteFile(file);
+                                if (success) {
+                                  toast.success("File deleted from storage");
+                                } else {
+                                  toast.error("Failed to delete file");
+                                }
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       ))}
                     </div>
