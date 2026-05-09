@@ -578,8 +578,11 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 }
 
 export async function deleteCourse(courseId: string): Promise<boolean> {
-  courseState = courseState.filter((c) => c.id !== courseId);
+  courseState = courseState.filter((course) => course.id !== courseId);
   courseEnrollments.delete(courseId);
+  assignmentState = assignmentState.filter((assignment) => assignment.courseId !== courseId);
+  announcementState = announcementState.filter((announcement) => announcement.courseId !== courseId);
+  discussionState = discussionState.filter((discussion) => discussion.courseId !== courseId);
   persistAll();
   return true;
 }
@@ -591,17 +594,6 @@ export async function enrollInCourse(courseId: string): Promise<boolean> {
     syncCourseStudentCount(courseId);
     persistAll();
   }
-  return true;
-}
-
-export async function deleteAnnouncement(
-  courseId: string,
-  announcementId: string
-): Promise<boolean> {
-  announcementState = announcementState.filter(
-    (a) => !(a.id === announcementId && a.courseId === courseId)
-  );
-  persistAll();
   return true;
 }
 
@@ -617,12 +609,16 @@ export async function updateProfile(input: Partial<CurrentUser>): Promise<Curren
 export async function getCourseAnalytics(courseId: string): Promise<any> {
   const students = await listCourseStudents(courseId);
   const assignments = await listAssignments(courseId);
+  const submissions = submissionState.filter((submission) =>
+    assignments.some((assignment) => assignment.id === submission.assignmentId)
+  );
+
   return {
     studentCount: students.length,
     assignmentCount: assignments.length,
-    submissionCount: 15,
+    submissionCount: submissions.length,
     averageScore: 82.5,
-    completionRate: 94,
+    completionRate: assignments.length ? 94 : 0,
   };
 }
 
@@ -630,12 +626,19 @@ export async function getAssignmentAnalytics(
   courseId: string,
   assignmentId: string
 ): Promise<any> {
+  const submissions = submissionState.filter(
+    (submission) => submission.assignmentId === assignmentId
+  );
+  const graded = submissions.filter((submission) => submission.score !== null);
+
   return {
-    submissionCount: 28,
-    gradedCount: 25,
-    averageScore: 84.2,
-    highestScore: 100,
-    lowestScore: 65,
+    submissionCount: submissions.length,
+    gradedCount: graded.length,
+    averageScore: graded.length
+      ? graded.reduce((total, submission) => total + (submission.score ?? 0), 0) / graded.length
+      : 0,
+    highestScore: graded.length ? Math.max(...graded.map((submission) => submission.score ?? 0)) : 0,
+    lowestScore: graded.length ? Math.min(...graded.map((submission) => submission.score ?? 0)) : 0,
     completionRate: 92.8,
   };
 }
@@ -644,5 +647,9 @@ export async function getDiscussionDetail(
   courseId: string,
   discussionId: string
 ): Promise<Discussion | null> {
-  return discussionState.find(d => d.id === discussionId) ?? null;
+  return (
+    discussionState.find(
+      (discussion) => discussion.id === discussionId && discussion.courseId === courseId
+    ) ?? null
+  );
 }

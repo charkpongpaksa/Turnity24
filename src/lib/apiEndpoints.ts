@@ -111,7 +111,7 @@ export const NOTIFICATIONS = {
 // ─── Analytics (Instructor only) ──────────────────────────────────
 export const ANALYTICS = {
   COURSE:       "/courses/{courseId}/analytics",               // GET → Lambda: analytics-course
-  ASSIGNMENT:   "/courses/{courseId}/analytics/assignments/{assignmentId}",   // GET → Lambda: analytics-assignments
+  ASSIGNMENT:   "/courses/{courseId}/analytics/assignments",   // GET → Lambda: analytics-assignments
 } as const;
 
 // ─── Helper: build a path by substituting {param} placeholders ────

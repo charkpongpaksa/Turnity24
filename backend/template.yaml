@@ -2,26 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Turnity backend scaffold for AWS SAM
 
-Parameters:
-  AppEnv:
-    Type: String
-    Default: dev
-  CorsOrigin:
-    Type: String
-    Default: http://localhost:5173
-  AuthTokenSecret:
-    Type: String
-    NoEcho: true
-    Default: ""
-  LocalAuthSalt:
-    Type: String
-    NoEcho: true
-    Default: ""
-  TuApiApplicationKey:
-    Type: String
-    NoEcho: true
-    Default: ""
-
 Globals:
   Function:
     Runtime: nodejs24.x
@@ -30,14 +10,15 @@ Globals:
     CodeUri: ./
     Environment:
       Variables:
-        APP_ENV: !Ref AppEnv
-        CORS_ORIGIN: !Ref CorsOrigin
+        APP_ENV: dev
+        CORS_ORIGIN: http://localhost:5173
         TU_API_BASE_URL: https://restapi.tu.ac.th/api/v1/auth/Ad
         DDB_TABLE_NAME: !Ref TurnityTable
         UPLOADS_BUCKET_NAME: !Ref UploadsBucket
-        AUTH_TOKEN_SECRET: !Ref AuthTokenSecret
-        LOCAL_AUTH_SALT: !Ref LocalAuthSalt
-        TU_API_APPLICATION_KEY: !Ref TuApiApplicationKey
+        # CHANGE IN AWS Console/Parameter Store before production. Do not commit real secrets.
+        AUTH_TOKEN_SECRET: turnity-prod-secret-change-me-in-console
+        LOCAL_AUTH_SALT: turnity-prod-salt-change-me-in-console
+        TU_API_APPLICATION_KEY: ""
         POWERTOOLS_SERVICE_NAME: turnity-backend
 
 Resources:
@@ -52,7 +33,8 @@ Resources:
           - DELETE
           - OPTIONS
         AllowOrigins:
-          - !Ref CorsOrigin
+          - http://localhost:5173
+          - https://your-production-domain.com
         AllowHeaders:
           - Content-Type
           - Authorization
@@ -115,31 +97,8 @@ Resources:
               - POST
               - HEAD
             AllowedOrigins:
-              - !Ref CorsOrigin
+              - "*"
             MaxAge: 3000
-
-  FrontendBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-
-  FrontendBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref FrontendBucket
-      PolicyDocument:
-        Statement:
-          - Action: s3:GetObject
-            Effect: Allow
-            Resource: !Sub "arn:aws:s3:::${FrontendBucket}/*"
-            Principal: "*"
 
   AuthLoginFunction:
     Type: AWS::Serverless::Function
@@ -232,19 +191,6 @@ Resources:
             Path: /courses/{courseId}
             Method: PUT
 
-  CoursesDeleteFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/courses-delete/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        CoursesDelete:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}
-            Method: DELETE
-
   CourseDetailFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -258,19 +204,6 @@ Resources:
             Path: /courses/{courseId}
             Method: GET
 
-  CoursesEnrollFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/courses-enroll/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        CoursesEnroll:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/enroll
-            Method: POST
-
   UsersStudentsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -283,38 +216,6 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /users/students
             Method: GET
-
-  UsersProfileFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/users-profile/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        UsersProfileGet:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /users/profile
-            Method: GET
-        UsersProfileUpdate:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /users/profile
-            Method: PUT
-
-  UsersAvatarFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/users-avatar/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        UsersAvatar:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /users/profile/avatar
-            Method: POST
 
   CourseStudentsFunction:
     Type: AWS::Serverless::Function
@@ -406,19 +307,6 @@ Resources:
             Path: /courses/{courseId}/assignments/{assignmentId}
             Method: GET
 
-  AssignmentsUpdateFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/assignments-update/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        AssignmentsUpdate:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/assignments/{assignmentId}
-            Method: PUT
-
   AssignmentsDeleteFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -432,6 +320,19 @@ Resources:
             Path: /courses/{courseId}/assignments/{assignmentId}
             Method: DELETE
 
+  AssignmentsUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/assignments-update/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        AssignmentsUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /courses/{courseId}/assignments/{assignmentId}
+            Method: PUT
+
   AnnouncementsUpdateFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -444,19 +345,6 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /courses/{courseId}/announcements/{announcementId}
             Method: PUT
-
-  AnnouncementsDeleteFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/announcements-delete/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        AnnouncementsDelete:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/announcements/{announcementId}
-            Method: DELETE
 
   UploadPresignFunction:
     Type: AWS::Serverless::Function
@@ -483,19 +371,6 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /files/presigned-download
             Method: POST
-
-  FilesDeleteFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/files-delete/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        FilesDelete:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /files/{fileKey}
-            Method: DELETE
 
   SubmissionsCreateFunction:
     Type: AWS::Serverless::Function
@@ -562,19 +437,6 @@ Resources:
             Path: /courses/{courseId}/discussions
             Method: GET
 
-  DiscussionsDetailFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/discussion-detail/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        DiscussionsDetail:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/discussions/{discussionId}
-            Method: GET
-
   DiscussionsUpdateFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -627,18 +489,44 @@ Resources:
             Path: /courses/{courseId}/discussions/{discussionId}/replies
             Method: POST
 
-  SubmissionsDetailFunction:
+  CommentsListFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: functions/submissions-detail/index.handler
+      Handler: functions/comments-list/index.handler
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       Events:
-        SubmissionsDetail:
+        CommentsList:
           Type: HttpApi
           Properties:
             ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/assignments/{assignmentId}/submissions/{submissionId}
+            Path: /discussions/{discussionId}/comments
             Method: GET
+
+  DiscussionsReactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-react/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        DiscussionsReact:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/react
+            Method: POST
+
+  DiscussionsCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/discussion-comment/index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Events:
+        DiscussionsComment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TurnityApi
+            Path: /discussions/comment
+            Method: POST
 
   NotificationsCreateFunction:
     Type: AWS::Serverless::Function
@@ -691,32 +579,6 @@ Resources:
             ApiId: !Ref TurnityApi
             Path: /notifications/read-all
             Method: PUT
-
-  AnalyticsCourseFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/analytics-course/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        AnalyticsCourse:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/analytics
-            Method: GET
-
-  AnalyticsAssignmentsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/analytics-assignments/index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Events:
-        AnalyticsAssignments:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref TurnityApi
-            Path: /courses/{courseId}/analytics/assignments/{assignmentId}
-            Method: GET
 Outputs:
   ApiBaseUrl:
     Description: HTTP API base URL
@@ -724,9 +586,3 @@ Outputs:
   TableName:
     Description: DynamoDB table name
     Value: !Ref TurnityTable
-  FrontendUrl:
-    Description: Frontend S3 Website URL
-    Value: !GetAtt FrontendBucket.WebsiteURL
-  FrontendBucketName:
-    Description: Frontend S3 Bucket Name
-    Value: !Ref FrontendBucket

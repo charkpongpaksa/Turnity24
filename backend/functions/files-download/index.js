@@ -28,7 +28,6 @@ export async function handler(event) {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: fileKey,
-      ResponseContentDisposition: `attachment; filename="${fileKey.split("/").pop()}"`,
     });
 
     return ok({

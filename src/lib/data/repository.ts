@@ -377,19 +377,6 @@ export function updateAnnouncement(
   );
 }
 
-export function deleteAnnouncement(
-  courseId: string,
-  announcementId: string
-): Promise<boolean> {
-  return withDataSource(
-    () =>
-      api.delete<void>(
-        buildPath(ANNOUNCEMENTS.DELETE, { courseId, announcementId })
-      ).then(() => true),
-    () => mockRepository.deleteAnnouncement(courseId, announcementId)
-  );
-}
-
 export function listNotifications(): Promise<Notification[]> {
   return withDataSource(
     () => {
@@ -615,13 +602,6 @@ export function requestPresignedDownload(
   );
 }
 
-export function deleteFile(fileKey: string): Promise<boolean> {
-  return withDataSource(
-    () => api.delete<void>(buildPath(FILES.DELETE, { fileKey })).then(() => true),
-    async () => true
-  );
-}
-
 export function createSubmission(
   courseId: string,
   assignmentId: string,
@@ -666,12 +646,19 @@ export function uploadAvatar(
   contentType: string
 ): Promise<{ uploadUrl: string; fileKey: string; avatarUrl: string }> {
   return withDataSource(
-    () => api.post(USERS.PROFILE_AVATAR, { fileName, contentType }),
-    async () => ({
-      uploadUrl: "",
-      fileKey: "mock-avatar-key",
-      avatarUrl: "https://via.placeholder.com/150",
-    })
+    () =>
+      api.post<{ uploadUrl: string; fileKey: string; avatarUrl: string }>(
+        USERS.PROFILE_AVATAR,
+        { fileName, contentType }
+      ),
+    async () => {
+      const fileKey = `mock/avatar/${Date.now()}-${fileName}`;
+      return {
+        uploadUrl: "",
+        fileKey,
+        avatarUrl: fileKey,
+      };
+    }
   );
 }
 

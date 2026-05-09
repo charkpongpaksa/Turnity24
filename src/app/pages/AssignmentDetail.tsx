@@ -11,12 +11,10 @@ import {
   CheckCircle,
   AlertTriangle,
   Calendar,
-  Upload,
-  Trash2
+  Upload
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
 import {
-  deleteFile,
   getAssignmentById,
   getCourseById,
   requestPresignedDownload,
@@ -227,34 +225,16 @@ export function AssignmentDetail() {
                             <FileText className="h-4 w-4 shrink-0" />
                             <span className="truncate">{file}</span>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openSubmittedFile(submission.fileUrl)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={async () => {
-                                if (!confirm(`Delete ${file}?`)) return;
-                                const success = await deleteFile(submission.fileUrl || file);
-                                if (success) {
-                                  toast.success("File deleted from storage");
-                                } else {
-                                  toast.error("Failed to delete file");
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => openSubmittedFile(submission.fileUrl)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
                         </div>
                       ))}
                     </div>
