@@ -47,6 +47,7 @@ import * as mockRepository from "./mockRepository";
 
 const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
 const API_COURSE_CACHE_KEY = "turnity_api_course_cache";
+const API_COURSE_STUDENT_CACHE_KEY = "turnity_api_course_student_cache";
 
 const DEMO_STUDENT: Student = {
   id: "student-demo",
@@ -72,6 +73,30 @@ function saveCachedCourses(courses: Course[]): void {
   localStorage.setItem(API_COURSE_CACHE_KEY, JSON.stringify(courses.slice(0, 50)));
 }
 
+function loadCachedCourseStudents(): Record<string, Student[]> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(API_COURSE_STUDENT_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, Student[]> : {};
+  } catch {
+    localStorage.removeItem(API_COURSE_STUDENT_CACHE_KEY);
+    return {};
+  }
+}
+
+function saveCachedCourseStudents(cache: Record<string, Student[]>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_COURSE_STUDENT_CACHE_KEY, JSON.stringify(cache));
+}
+
+function updateCachedCourseStudentCount(courseId: string, studentCount: number): void {
+  const nextCourses = loadCachedCourses().map((course) =>
+    course.id === courseId ? { ...course, students: studentCount } : course
+  );
+  saveCachedCourses(nextCourses);
+}
+
 function cacheCourse(course: Course): void {
   const next = [
     course,
@@ -82,6 +107,9 @@ function cacheCourse(course: Course): void {
 
 function removeCachedCourse(courseId: string): void {
   saveCachedCourses(loadCachedCourses().filter((course) => course.id !== courseId));
+  const studentCache = loadCachedCourseStudents();
+  delete studentCache[courseId];
+  saveCachedCourseStudents(studentCache);
 }
 
 function createCachedCourse(input: CreateCourseRequest): Course {
@@ -628,21 +656,16 @@ export function listStudents(): Promise<Student[]> {
 export function listCourseStudents(courseId: string): Promise<Student[]> {
   return withDataSource(
     async () => {
+      const cachedStudents = loadCachedCourseStudents()[courseId] ?? [];
+      if (cachedStudents.length > 0) return cachedStudents;
+
       try {
-        const students = await api.get<CourseStudentsResponse>(
+        return await api.get<CourseStudentsResponse>(
           buildPath(COURSES.STUDENTS, { courseId })
         );
-        if (students.length > 0) return students;
       } catch {
-        // Fall through to local/demo hints while AWS endpoints are catching up.
+        return [];
       }
-
-      const cachedSubmissions = loadCachedSubmissions();
-      const hasDemoSubmission = cachedSubmissions.some(
-        (submission) => submission.studentId === DEMO_STUDENT.id
-      );
-
-      return courseId === "seed-course-1" || hasDemoSubmission ? [DEMO_STUDENT] : [];
     },
     () => mockRepository.listCourseStudents(courseId)
   );
@@ -653,10 +676,31 @@ export function addStudentToCourse(
   studentId: string
 ): Promise<Student[]> {
   return withDataSource(
-    () =>
-      api.post<CourseStudentsResponse>(buildPath(COURSES.ADD_STUDENT, { courseId }), {
-        studentId,
-      } satisfies AddStudentToCourseRequest),
+    async () => {
+      const allStudents = await listStudents();
+      const student = allStudents.find((item) => item.id === studentId);
+      if (!student) throw new Error("Student not found.");
+
+      try {
+        const students = await api.post<CourseStudentsResponse>(
+          buildPath(COURSES.ADD_STUDENT, { courseId }),
+          { studentId } satisfies AddStudentToCourseRequest
+        );
+        updateCachedCourseStudentCount(courseId, students.length);
+        return students;
+      } catch {
+        const cache = loadCachedCourseStudents();
+        const currentStudents = cache[courseId] ?? [];
+        const nextStudents = currentStudents.some((item) => item.id === studentId)
+          ? currentStudents
+          : [...currentStudents, student];
+
+        cache[courseId] = nextStudents;
+        saveCachedCourseStudents(cache);
+        updateCachedCourseStudentCount(courseId, nextStudents.length);
+        return nextStudents;
+      }
+    },
     () => mockRepository.addStudentToCourse(courseId, studentId)
   );
 }
@@ -666,10 +710,24 @@ export function removeStudentFromCourse(
   studentId: string
 ): Promise<Student[]> {
   return withDataSource(
-    () =>
-      api.delete<CourseStudentsResponse>(
-        buildPath(COURSES.REMOVE_STUDENT, { courseId, studentId })
-      ),
+    async () => {
+      try {
+        const students = await api.delete<CourseStudentsResponse>(
+          buildPath(COURSES.REMOVE_STUDENT, { courseId, studentId })
+        );
+        updateCachedCourseStudentCount(courseId, students.length);
+        return students;
+      } catch {
+        const cache = loadCachedCourseStudents();
+        const nextStudents = (cache[courseId] ?? []).filter(
+          (student) => student.id !== studentId
+        );
+        cache[courseId] = nextStudents;
+        saveCachedCourseStudents(cache);
+        updateCachedCourseStudentCount(courseId, nextStudents.length);
+        return nextStudents;
+      }
+    },
     () => mockRepository.removeStudentFromCourse(courseId, studentId)
   );
 }
