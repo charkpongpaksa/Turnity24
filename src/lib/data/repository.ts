@@ -48,6 +48,13 @@ import * as mockRepository from "./mockRepository";
 const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
 const API_COURSE_CACHE_KEY = "turnity_api_course_cache";
 
+const DEMO_STUDENT: Student = {
+  id: "student-demo",
+  name: "Student Demo",
+  email: "student.demo@turnity.local",
+  avatar: "",
+};
+
 function loadCachedCourses(): Course[] {
   if (typeof window === "undefined") return [];
 
@@ -588,14 +595,37 @@ export function toggleDiscussionLike(
 
 export function listStudents(): Promise<Student[]> {
   return withDataSource(
-    () => api.get<Student[]>(USERS.STUDENTS),
+    async () => {
+      try {
+        const students = await api.get<Student[]>(USERS.STUDENTS);
+        return students.length > 0 ? students : [DEMO_STUDENT];
+      } catch {
+        return [DEMO_STUDENT];
+      }
+    },
     () => mockRepository.listStudents()
   );
 }
 
 export function listCourseStudents(courseId: string): Promise<Student[]> {
   return withDataSource(
-    () => api.get<CourseStudentsResponse>(buildPath(COURSES.STUDENTS, { courseId })),
+    async () => {
+      try {
+        const students = await api.get<CourseStudentsResponse>(
+          buildPath(COURSES.STUDENTS, { courseId })
+        );
+        if (students.length > 0) return students;
+      } catch {
+        // Fall through to local/demo hints while AWS endpoints are catching up.
+      }
+
+      const cachedSubmissions = loadCachedSubmissions();
+      const hasDemoSubmission = cachedSubmissions.some(
+        (submission) => submission.studentId === DEMO_STUDENT.id
+      );
+
+      return courseId === "seed-course-1" || hasDemoSubmission ? [DEMO_STUDENT] : [];
+    },
     () => mockRepository.listCourseStudents(courseId)
   );
 }
