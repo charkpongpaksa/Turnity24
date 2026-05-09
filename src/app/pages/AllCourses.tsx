@@ -35,6 +35,7 @@ export function AllCourses() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
   const [creatingCourse, setCreatingCourse] = useState(false);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editInstructor, setEditInstructor] = useState("");
@@ -122,12 +123,19 @@ export function AllCourses() {
       return;
     }
 
-    const success = await deleteCourse(courseId);
-    if (success) {
-      setLocalCourses((current) => current.filter((c) => c.id !== courseId));
-      toast.success("Course deleted successfully");
-    } else {
-      toast.error("Failed to delete the course");
+    setDeletingCourseId(courseId);
+    try {
+      const success = await deleteCourse(courseId);
+      if (success) {
+        setLocalCourses((current) => current.filter((c) => c.id !== courseId));
+        toast.success("Course deleted successfully");
+      } else {
+        toast.error("Failed to delete the course");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete the course");
+    } finally {
+      setDeletingCourseId(null);
     }
   };
 
@@ -238,6 +246,7 @@ export function AllCourses() {
                           variant="outline"
                           size="sm"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                          disabled={deletingCourseId === course.id}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleDeleteCourse(course.id);

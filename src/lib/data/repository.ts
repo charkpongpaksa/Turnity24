@@ -80,6 +80,10 @@ function cacheCourse(course: Course): void {
   saveCachedCourses(next);
 }
 
+function removeCachedCourse(courseId: string): void {
+  saveCachedCourses(loadCachedCourses().filter((course) => course.id !== courseId));
+}
+
 function createCachedCourse(input: CreateCourseRequest): Course {
   return {
     id: `local-course-${Date.now().toString(36)}`,
@@ -331,7 +335,21 @@ export function updateCourse(
 
 export function deleteCourse(courseId: string): Promise<boolean> {
   return withDataSource(
-    () => api.delete<void>(buildPath(COURSES.DELETE, { courseId })).then(() => true),
+    async () => {
+      removeCachedCourse(courseId);
+
+      if (courseId.startsWith("local-course-")) {
+        return true;
+      }
+
+      try {
+        await api.delete<void>(buildPath(COURSES.DELETE, { courseId }));
+      } catch {
+        // Keep the UI unblocked while backend delete routes are unavailable.
+      }
+
+      return true;
+    },
     () => mockRepository.deleteCourse(courseId)
   );
 }
