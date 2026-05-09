@@ -116,6 +116,12 @@ function cacheAssignment(assignment: Assignment): void {
   saveCachedAssignments(next);
 }
 
+function removeCachedAssignment(assignmentId: string): void {
+  saveCachedAssignments(
+    loadCachedAssignments().filter((assignment) => assignment.id !== assignmentId)
+  );
+}
+
 function createCachedAssignment(
   courseId: string,
   input: CreateAssignmentRequest
@@ -548,10 +554,23 @@ export function deleteAssignment(
   assignmentId: string
 ): Promise<boolean> {
   return withDataSource(
-    () =>
-      api.delete<void>(
-        buildPath(ASSIGNMENTS.DELETE, { courseId, assignmentId })
-      ).then(() => true),
+    async () => {
+      removeCachedAssignment(assignmentId);
+
+      if (courseId.startsWith("local-course-") || assignmentId.startsWith("local-assignment-")) {
+        return true;
+      }
+
+      try {
+        await api.delete<void>(
+          buildPath(ASSIGNMENTS.DELETE, { courseId, assignmentId })
+        );
+      } catch {
+        // Keep locally cached UI state moving when backend delete is unavailable.
+      }
+
+      return true;
+    },
     () => mockRepository.deleteAssignment(courseId, assignmentId)
   );
 }

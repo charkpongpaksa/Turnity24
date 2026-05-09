@@ -33,6 +33,7 @@ export function InstructorAssignmentDetail() {
   const [showEditDeadlineModal, setShowEditDeadlineModal] = useState(false);
   const [showEditAssignmentModal, setShowEditAssignmentModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingAssignment, setDeletingAssignment] = useState(false);
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
 
@@ -151,14 +152,22 @@ export function InstructorAssignmentDetail() {
   const handleDeleteAssignment = async () => {
     if (!courseId || !assignmentId) return;
 
-    const deleted = await deleteAssignment(courseId, assignmentId);
-    if (!deleted) {
-      toast.error("Unable to delete assignment");
-      return;
-    }
+    setDeletingAssignment(true);
+    try {
+      const deleted = await deleteAssignment(courseId, assignmentId);
+      if (!deleted) {
+        toast.error("Unable to delete assignment");
+        return;
+      }
 
-    toast.success("Assignment deleted");
-    navigate(`/instructor/course/${courseId}`);
+      toast.success("Assignment deleted");
+      setShowDeleteDialog(false);
+      navigate(`/instructor/course/${courseId}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete assignment");
+    } finally {
+      setDeletingAssignment(false);
+    }
   };
 
   const getDaysUntil = (dueDate: string) => {
@@ -434,9 +443,10 @@ export function InstructorAssignmentDetail() {
             </Button>
             <Button
               className="bg-red-600 hover:bg-red-700"
+              disabled={deletingAssignment}
               onClick={handleDeleteAssignment}
             >
-              Delete Assignment
+              {deletingAssignment ? "Deleting..." : "Delete Assignment"}
             </Button>
           </DialogFooter>
         </DialogContent>
