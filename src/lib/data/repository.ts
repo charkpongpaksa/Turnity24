@@ -228,6 +228,41 @@ function cacheSubmission(submission: SubmissionRecord): void {
   localStorage.setItem(API_SUBMISSION_CACHE_KEY, JSON.stringify(next));
 }
 
+function applySubmissionToCachedAssignment(submission: SubmissionRecord): void {
+  const cachedAssignments = loadCachedAssignments();
+  const assignment = cachedAssignments.find(
+    (item) => item.id === submission.assignmentId
+  );
+  if (!assignment || !submission.submittedAt) return;
+
+  cacheAssignment(
+    mergeSubmissionRecords(assignment, [
+      submission,
+      ...loadCachedSubmissions().filter(
+        (item) => item.assignmentId === submission.assignmentId
+      ),
+    ])
+  );
+}
+
+function createCachedSubmission(
+  assignmentId: string,
+  input: { text?: string; fileUrl?: string; fileName?: string }
+): SubmissionRecord {
+  return {
+    id: `local-submission-${Date.now().toString(36)}`,
+    studentId: DEMO_STUDENT.id,
+    assignmentId,
+    status: "submitted",
+    submittedAt: new Date().toISOString(),
+    score: null,
+    feedback: "Pending review",
+    text: input.text ?? "",
+    fileUrl: input.fileUrl ?? null,
+    fileName: input.fileName ?? null,
+  };
+}
+
 function mergeSubmissionRecordList(records: SubmissionRecord[]): SubmissionRecord[] {
   const byOwnerAndAssignment = new Map<string, SubmissionRecord>();
 
@@ -497,7 +532,12 @@ export function getAssignmentById(
       const cachedAssignment = loadCachedAssignments().find(
         (assignment) => assignment.id === assignmentId && assignment.courseId === courseId
       );
-      if (cachedAssignment) return cachedAssignment;
+      if (cachedAssignment) {
+        const cachedSubmissions = loadCachedSubmissions().filter(
+          (submission) => submission.assignmentId === assignmentId
+        );
+        return mergeSubmissionRecords(cachedAssignment, cachedSubmissions);
+      }
 
       return getAssignmentWithSubmissions(courseId, assignmentId);
     },
@@ -930,11 +970,23 @@ export function createSubmission(
 ): Promise<SubmissionRecord> {
   return withDataSource(
     async () => {
-      const submission = await api.post<SubmissionRecord>(
-        buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
-        input
-      );
+      let submission: SubmissionRecord;
+
+      if (courseId.startsWith("local-course-") || assignmentId.startsWith("local-assignment-")) {
+        submission = createCachedSubmission(assignmentId, input);
+      } else {
+        try {
+          submission = await api.post<SubmissionRecord>(
+            buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
+            input
+          );
+        } catch {
+          submission = createCachedSubmission(assignmentId, input);
+        }
+      }
+
       cacheSubmission(submission);
+      applySubmissionToCachedAssignment(submission);
       return submission;
     },
     () => mockRepository.createSubmission(assignmentId, input)
