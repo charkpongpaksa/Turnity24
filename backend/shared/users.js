@@ -124,15 +124,14 @@ export async function ensureLocalAccountsSeeded() {
   await Promise.all(
     LOCAL_TEST_ACCOUNTS.map(async (account) => {
       const existing = await getUserById(account.userId);
-      if (existing) return existing;
-
       const timestamp = now();
+
       return saveUser({
         ...account,
         passwordHash: hashPassword(account.password),
-        createdAt: timestamp,
+        createdAt: existing?.createdAt || timestamp,
         updatedAt: timestamp,
-        lastLoginAt: null,
+        lastLoginAt: existing?.lastLoginAt ?? null,
       });
     })
   );
@@ -304,6 +303,37 @@ export async function listStudentUsers() {
     email: item.email || "",
     avatar: item.avatar || "",
   }));
+}
+
+export async function updateUserProfile(userId, input) {
+  const existing = await getUserById(userId);
+  if (!existing) {
+    throw new Error("User not found");
+  }
+
+  const nextUser = {
+    ...existing,
+    nameEn:
+      typeof input.name === "string" && input.name.trim()
+        ? input.name.trim()
+        : typeof input.nameEn === "string" && input.nameEn.trim()
+          ? input.nameEn.trim()
+          : existing.nameEn,
+    nameTh:
+      typeof input.nameTh === "string" && input.nameTh.trim()
+        ? input.nameTh.trim()
+        : existing.nameTh,
+    avatar:
+      typeof input.avatarUrl === "string"
+        ? input.avatarUrl
+        : typeof input.avatar === "string"
+          ? input.avatar
+          : existing.avatar,
+    updatedAt: now(),
+  };
+
+  await saveUser(nextUser);
+  return nextUser;
 }
 
 export function buildTuProfileFromUser(user) {

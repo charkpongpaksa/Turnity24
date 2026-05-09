@@ -11,6 +11,9 @@ import {
 const signingSecret =
   process.env.AUTH_TOKEN_SECRET || "turnity-dev-signing-secret-change-me";
 const tokenLifetimeSeconds = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 28800);
+const refreshLifetimeSeconds = Number(
+  process.env.REFRESH_TOKEN_TTL_SECONDS || 2592000
+);
 
 function normalize(value) {
   return String(value || "").trim();
@@ -42,6 +45,7 @@ export function createAccessToken(userId, role = "student") {
   const payload = {
     sub: userId,
     role,
+    type: "access",
     iat: nowSeconds,
     exp: nowSeconds + tokenLifetimeSeconds,
   };
@@ -51,7 +55,21 @@ export function createAccessToken(userId, role = "student") {
   return `${encodedPayload}.${signature}`;
 }
 
-export function parseAccessToken(token) {
+export function createRefreshToken(userId) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const payload = {
+    sub: userId,
+    type: "refresh",
+    iat: nowSeconds,
+    exp: nowSeconds + refreshLifetimeSeconds,
+  };
+
+  const encodedPayload = base64urlEncode(JSON.stringify(payload));
+  const signature = sign(encodedPayload);
+  return `${encodedPayload}.${signature}`;
+}
+
+function parseToken(token, expectedType = "access") {
   const raw = String(token || "").trim();
   if (!raw || !raw.includes(".")) return null;
 
@@ -62,11 +80,21 @@ export function parseAccessToken(token) {
   try {
     const payload = JSON.parse(base64urlDecode(encodedPayload));
     if (!payload?.sub || !payload?.exp) return null;
+    if (payload.type && payload.type !== expectedType) return null;
+    if (!payload.type && expectedType !== "access") return null;
     if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
   }
+}
+
+export function parseAccessToken(token) {
+  return parseToken(token, "access");
+}
+
+export function parseRefreshToken(token) {
+  return parseToken(token, "refresh");
 }
 
 export function getBearerToken(event) {

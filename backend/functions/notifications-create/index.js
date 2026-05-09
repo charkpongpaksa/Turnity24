@@ -1,6 +1,6 @@
-import { badRequest, created, internalError, parseBody, unauthorized } from "./shared/http.js";
-import { createNotification } from "./shared/dynamo.js";
-import { requireAuthenticatedUser } from "./shared/auth.js";
+import { badRequest, created, internalError, parseBody, unauthorized } from "../../shared/http.js";
+import { createNotification } from "../../shared/dynamo.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
 
 export async function handler(event) {
   try {

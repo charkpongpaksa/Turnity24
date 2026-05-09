@@ -26,7 +26,7 @@ import {
 import { toast } from "sonner";
 import { PageBackButton } from "../components/PageBackButton";
 import {
-  gradeSubmission as gradeSubmissionRequest,
+  gradeSubmission,
   getAssignmentById,
   getCourseById,
   listStudents,
@@ -86,6 +86,44 @@ export function SubmissionTracking() {
       )
     );
   }, [submissions]);
+
+  const handleDownload = async (fileKey: string) => {
+    try {
+      const { downloadUrl } = await requestPresignedDownload(fileKey);
+      window.open(downloadUrl, "_blank");
+    } catch (error) {
+      toast.error("Failed to get download link");
+    }
+  };
+
+  const handleExport = () => {
+    if (studentSubmissions.length === 0) {
+      toast.error("No submissions to export");
+      return;
+    }
+
+    const headers = ["Student Name", "Email", "Status", "Score", "Submitted At"].join(",");
+    const rows = studentSubmissions.map((item) => {
+      return [
+        item.name,
+        item.email,
+        item.submission?.status || "not_submitted",
+        item.submission?.score ?? "",
+        item.submission?.submittedAt || "",
+      ].join(",");
+    });
+
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${courseId}_${assignmentId}_submissions.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Submissions exported as CSV");
+  };
 
   if (courseLoading || assignmentLoading || studentsLoading || submissionsLoading) {
     return <div className="p-6">Loading submissions...</div>;
@@ -210,7 +248,7 @@ export function SubmissionTracking() {
 
     if (!courseId || !assignmentId) return;
 
-    const updated = await gradeSubmissionRequest(
+    const updated = await gradeSubmission(
       courseId,
       assignmentId,
       studentId,
@@ -233,6 +271,7 @@ export function SubmissionTracking() {
 
   const getSubmissionPreview = () => {
     if (!selectedSubmission?.submission) return null;
+    const submission = selectedSubmission.submission;
 
     if (assignment.type === "link" && selectedSubmission.submission.text) {
       return {
@@ -412,7 +451,7 @@ export function SubmissionTracking() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export CSV
             </Button>
             <Button
               variant="outline"
@@ -518,6 +557,16 @@ export function SubmissionTracking() {
                       <TableCell className="text-right">
                         {item.submission?.status === "submitted" || item.submission?.status === "late" ? (
                           <div className="flex justify-end gap-2">
+                            {item.submission.fileUrl && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownload(item.submission!.fileUrl!)}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"

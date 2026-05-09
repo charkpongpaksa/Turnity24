@@ -4,8 +4,8 @@ import {
   ok,
   unauthorized,
   parseBody,
-} from "./shared/http.js";
-import { authenticateUser, createAccessToken } from "./shared/auth.js";
+} from "../../shared/http.js";
+import { authenticateUser, createAccessToken, createRefreshToken } from "../../shared/auth.js";
 
 export async function handler(event) {
   try {
@@ -19,10 +19,13 @@ export async function handler(event) {
 
     const { profile, user } = await authenticateUser({ username, password });
 
+    const accessTokenTtl = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 28800);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
     return ok({
       accessToken: createAccessToken(user.userId, user.role),
-      refreshToken: `refresh-${user.userId}`,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 8).toISOString(),
+      refreshToken: createRefreshToken(user.userId),
+      expiresAt: nowSeconds + accessTokenTtl,
       profile,
     });
   } catch (error) {
