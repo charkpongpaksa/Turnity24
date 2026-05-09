@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation } from "react-router";
+import { Link, Outlet, useNavigate, useLocation } from "react-router";
 import { 
   Home, 
   BookOpen, 
@@ -348,16 +348,15 @@ export function RootLayout() {
               const isActive = location.pathname === item.path;
               return (
                 <Button
+                  asChild
                   key={item.key}
                   variant={isActive ? "secondary" : "ghost"}
                   className="w-full justify-start gap-3"
-                  onClick={() => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  }}
                 >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
+                  <Link to={item.path} onClick={() => setSidebarOpen(false)}>
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                  </Link>
                 </Button>
               );
             })}

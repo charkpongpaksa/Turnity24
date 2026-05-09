@@ -72,6 +72,25 @@ function cacheSubmission(submission: SubmissionRecord): void {
   localStorage.setItem(API_SUBMISSION_CACHE_KEY, JSON.stringify(next));
 }
 
+function mergeSubmissionRecordList(records: SubmissionRecord[]): SubmissionRecord[] {
+  const byOwnerAndAssignment = new Map<string, SubmissionRecord>();
+
+  records
+    .filter((submission) => submission.assignmentId && submission.studentId)
+    .forEach((submission) => {
+      byOwnerAndAssignment.set(
+        `${submission.assignmentId}:${submission.studentId}`,
+        submission
+      );
+    });
+
+  return [...byOwnerAndAssignment.values()].sort(
+    (a, b) =>
+      new Date(b.submittedAt ?? 0).getTime() -
+      new Date(a.submittedAt ?? 0).getTime()
+  );
+}
+
 function mergeSubmissionRecords(
   assignment: Assignment,
   submissions: SubmissionRecord[]
@@ -546,13 +565,33 @@ export function listSubmissions(input?: {
 }): Promise<SubmissionRecord[]> {
   return withDataSource(
     async () => {
-      if (!input?.courseId || !input.assignmentId) return [];
-      return api.get<SubmissionsListResponse>(
-        buildPath(SUBMISSIONS.LIST, {
-          courseId: input.courseId,
-          assignmentId: input.assignmentId,
-        })
+      const cachedSubmissions = loadCachedSubmissions().filter(
+        (submission) =>
+          !input?.assignmentId || submission.assignmentId === input.assignmentId
       );
+
+      if (!input?.courseId || !input.assignmentId) {
+        return cachedSubmissions;
+      }
+
+      try {
+        const apiSubmissions = await api.get<SubmissionsListResponse>(
+          buildPath(SUBMISSIONS.LIST, {
+            courseId: input.courseId,
+            assignmentId: input.assignmentId,
+          })
+        );
+
+        return mergeSubmissionRecordList([
+          ...cachedSubmissions,
+          ...apiSubmissions,
+        ]);
+      } catch (error) {
+        if (cachedSubmissions.length > 0) {
+          return cachedSubmissions;
+        }
+        throw error;
+      }
     },
     () => mockRepository.listSubmissions(input?.assignmentId)
   );

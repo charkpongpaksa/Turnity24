@@ -95,8 +95,29 @@ export function SubmissionTracking() {
     return <div className="p-6">Assignment not found</div>;
   }
 
-  // Combine student and submission data
-  const studentSubmissions = students.map(student => {
+  const submittedStudentRows = localSubmissions
+    .filter((submission) => submission.assignmentId === assignmentId)
+    .map((submission) => {
+      const existingStudent = students.find((student) => student.id === submission.studentId);
+      const displayName =
+        existingStudent?.name ||
+        (submission.studentId === "student-demo" ? "Student Demo" : submission.studentId);
+
+      return {
+        id: submission.studentId,
+        name: displayName,
+        email:
+          existingStudent?.email ||
+          (submission.studentId === "student-demo"
+            ? "student.demo@turnity.local"
+            : `${submission.studentId}@turnity.local`),
+        avatar: existingStudent?.avatar || "",
+        submission,
+      };
+    });
+
+  // Combine student and submission data. If the student API is empty, submitted rows still appear.
+  const rosterRows = students.map(student => {
     const submission = localSubmissions.find(
       s => s.studentId === student.id && s.assignmentId === assignmentId
     );
@@ -105,6 +126,11 @@ export function SubmissionTracking() {
       submission: submission || null,
     };
   });
+  const rosterIds = new Set(rosterRows.map((student) => student.id));
+  const studentSubmissions = [
+    ...rosterRows,
+    ...submittedStudentRows.filter((row) => !rosterIds.has(row.id)),
+  ];
 
   // Filter logic
   const filteredSubmissions = studentSubmissions.filter(item => {
