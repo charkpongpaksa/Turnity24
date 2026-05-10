@@ -23,6 +23,9 @@ export type AssignmentAttachment = {
 export type Submission = {
   submittedAt: string;
   files: string[];
+  fileUrl?: string | null;
+  fileName?: string | null;
+  text?: string;
   feedback: string;
   score: number | null;
 };
@@ -84,11 +87,16 @@ export type Student = {
 };
 
 export type SubmissionRecord = {
+  id?: string;
   studentId: string;
   assignmentId: string;
   status: "submitted" | "late" | "missing";
   submittedAt: string | null;
   score: number | null;
+  feedback?: string;
+  text?: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
 };
 
 export type Notification = {

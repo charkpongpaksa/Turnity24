@@ -1,6 +1,10 @@
 # .gitignore
 node_modules/
 dist/
+.aws-sam/
+backend/node_modules/
+backend/.aws-sam/
+backend/.npm-cache/
 
 # Local env files — never commit real credentials
 .env

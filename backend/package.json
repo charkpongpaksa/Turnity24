@@ -5,8 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "build": "sam build",
+    "build": "sam build --cached --parallel",
     "deploy": "sam deploy --stack-name turnity-backend-dev --region us-east-1 --confirm-changeset --capabilities CAPABILITY_IAM",
+    "deploy:fast": "sam deploy --stack-name turnity-backend-dev --region us-east-1 --no-confirm-changeset --capabilities CAPABILITY_IAM",
+    "sync": "sam sync --stack-name turnity-backend-dev --region us-east-1",
+    "sync:watch": "sam sync --stack-name turnity-backend-dev --region us-east-1 --watch",
     "local": "sam local start-api --env-vars env.json.example",
     "delete": "sam delete --stack-name turnity-backend-dev --region us-east-1 --no-prompts"
   },

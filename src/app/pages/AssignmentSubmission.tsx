@@ -17,8 +17,12 @@ import {
   AlertCircle
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
-import { getAssignmentById, getCourseById } from "@/lib/data/repository";
+import { getAssignmentById, getCourseById, requestPresignedUpload, createSubmission } from "@/lib/data/repository";
+import { uploadToS3 } from "@/lib/apiClient";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { toast } from "sonner";
+
+const LOCAL_SUBMISSION_PREVIEW_PREFIX = "turnity_submission_preview:";
 
 export function AssignmentSubmission() {
   const { courseId, assignmentId } = useParams();
@@ -30,6 +34,7 @@ export function AssignmentSubmission() {
   const [linkUrl, setLinkUrl] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: course, loading: courseLoading } = useAsyncData(
     () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
@@ -83,13 +88,44 @@ export function AssignmentSubmission() {
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
-    // Simulate submission
-    setSubmitted(true);
-    setTimeout(() => {
+  const handleSubmit = async () => {
+    if (!courseId || !assignmentId) return;
+
+    setSubmitting(true);
+    try {
+      let fileUrl: string | undefined;
+      let fileName: string | undefined;
+      let text: string | undefined;
+
+      if (submissionType === "file" && files.length > 0) {
+        const file = files[0];
+        const { uploadUrl, fileKey } = await requestPresignedUpload(file.name, file.type);
+        if (uploadUrl) {
+          await uploadToS3(uploadUrl, file);
+        }
+        fileUrl = fileKey;
+        fileName = file.name;
+        if (typeof window !== "undefined") {
+          const previewUrl = URL.createObjectURL(file);
+          sessionStorage.setItem(`${LOCAL_SUBMISSION_PREVIEW_PREFIX}${fileKey}`, previewUrl);
+        }
+      } else if (submissionType === "text") {
+        text = textContent;
+      } else if (submissionType === "link") {
+        text = linkUrl;
+      }
+
+      await createSubmission(courseId, assignmentId, { text, fileUrl, fileName });
+      toast.success("Assignment submitted successfully!");
+      setSubmitted(true);
       navigate(`/course/${courseId}/assignment/${assignmentId}`);
-    }, 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit assignment");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   const canSubmit = () => {
     if (submissionType === "file") return files.length > 0;
@@ -344,11 +380,11 @@ export function AssignmentSubmission() {
             <CardContent className="p-6">
               <Button 
                 className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base"
-                disabled={!canSubmit()}
+                disabled={!canSubmit() || submitting}
                 onClick={handleSubmit}
               >
                 <CheckCircle className="h-5 w-5 mr-2" />
-                Submit Assignment
+                {submitting ? "Submitting..." : "Submit Assignment"}
               </Button>
               <p className="text-xs text-gray-500 text-center mt-3">
                 You can resubmit anytime before the deadline

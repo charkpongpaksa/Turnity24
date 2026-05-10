@@ -14,17 +14,40 @@ import {
   Upload
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
-import { getAssignmentById, getCourseById } from "@/lib/data/repository";
+import {
+  getAssignmentById,
+  getCourseById,
+  requestPresignedDownload,
+} from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import { appConfig } from "@/lib/config/env";
+import { toast } from "sonner";
+
+const LOCAL_SUBMISSION_PREVIEW_PREFIX = "turnity_submission_preview:";
+
+function buildCdnFileUrl(fileKey: string): string | null {
+  const baseUrl = appConfig.cdnBaseUrl;
+  if (!baseUrl || /x{4,}/i.test(baseUrl)) return null;
+
+  const encodedKey = fileKey
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  return `${baseUrl.replace(/\/$/, "")}/${encodedKey}`;
+}
 
 export function AssignmentDetail() {
   const { courseId, assignmentId } = useParams();
   const navigate = useNavigate();
-  const { data: course, loading: courseLoading } = useAsyncData(
+
+  console.log("AssignmentDetail rendered with params:", { courseId, assignmentId });
+
+  const { data: course, loading: courseLoading, error: courseError } = useAsyncData(
     () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
     [courseId]
   );
-  const { data: assignment, loading: assignmentLoading } = useAsyncData(
+  const { data: assignment, loading: assignmentLoading, error: assignmentError } = useAsyncData(
     () =>
       courseId && assignmentId
         ? getAssignmentById(courseId, assignmentId)
@@ -32,12 +55,22 @@ export function AssignmentDetail() {
     [courseId, assignmentId]
   );
 
+  console.log("AssignmentDetail data:", { course, assignment, courseError, assignmentError });
+
   if (courseLoading || assignmentLoading) {
     return <div className="p-6">Loading assignment...</div>;
   }
 
   if (!course || !assignment) {
-    return <div className="p-6">Assignment not found</div>;
+    return (
+      <div className="p-6">
+        {courseError?.message || assignmentError?.message ? (
+          <div className="text-red-600">Error: {courseError?.message || assignmentError?.message}</div>
+        ) : (
+          "Assignment not found"
+        )}
+      </div>
+    );
   }
 
   const getDaysUntil = (dueDate: string) => {
@@ -52,6 +85,48 @@ export function AssignmentDetail() {
 
   const isOverdue = new Date(assignment.dueDate) < new Date();
   const hasSubmitted = assignment.submissions.length > 0;
+
+  const openSubmittedFile = async (fileKey?: string | null) => {
+    if (!fileKey) {
+      toast.error("No file is attached to this submission");
+      return;
+    }
+
+    const localPreviewUrl =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem(`${LOCAL_SUBMISSION_PREVIEW_PREFIX}${fileKey}`)
+        : null;
+
+    if (localPreviewUrl) {
+      window.open(localPreviewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (/^https?:\/\//i.test(fileKey)) {
+      window.open(fileKey, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const cdnUrl = buildCdnFileUrl(fileKey);
+    if (cdnUrl) {
+      window.open(cdnUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      const { downloadUrl } = await requestPresignedDownload(fileKey);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message !== "Failed to fetch"
+          ? error.message
+          : "Download API is not deployed yet. Deploy backend or resubmit this file to preview it in this browser session.";
+
+      toast.error(
+        message
+      );
+    }
+  };
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
@@ -142,9 +217,24 @@ export function AssignmentDetail() {
                         <span>Submitted: {new Date(submission.submittedAt).toLocaleString()}</span>
                       </div>
                       {submission.files.map((file, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-gray-700">
-                          <FileText className="h-4 w-4" />
-                          <span>{file}</span>
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-3 text-gray-700"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{file}</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => openSubmittedFile(submission.fileUrl)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
                         </div>
                       ))}
                     </div>

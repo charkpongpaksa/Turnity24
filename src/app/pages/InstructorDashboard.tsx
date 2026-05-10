@@ -9,6 +9,7 @@ import {
   FileText,
   CheckCircle,
   XCircle,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
@@ -96,13 +97,23 @@ export function InstructorDashboard() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">My Courses</h2>
-              <Button 
-                variant="link" 
-                className="text-blue-600"
-                onClick={() => navigate("/instructor/courses")}
-              >
-                View All
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => navigate("/instructor/analytics")}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  View Analytics
+                </Button>
+                <Button 
+                  variant="link" 
+                  className="text-blue-600"
+                  onClick={() => navigate("/instructor/courses")}
+                >
+                  View All
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {courses.map((course) => (

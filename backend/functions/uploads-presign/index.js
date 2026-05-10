@@ -1,46 +1,44 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { badRequest, internalError, ok, parseBody, unauthorized } from "../../shared/http.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
 
-const s3 = new S3Client({ region: "us-east-1" });
+const s3 = new S3Client({});
 
-export const handler = async (event) => {
+export async function handler(event) {
   try {
-    const body = JSON.parse(event.body || "{}");
+    await requireAuthenticatedUser(event);
+    const body = parseBody(event);
+    const fileName = String(body.fileName || body.filename || "").trim();
+    const contentType = String(body.contentType || "application/octet-stream").trim();
+    const bucket = process.env.UPLOADS_BUCKET_NAME;
 
-    const fileName = body.fileName;
-    const contentType = body.contentType;
+    if (!bucket) {
+      return internalError("UPLOADS_BUCKET_NAME is not configured");
+    }
+    if (!fileName) {
+      return badRequest("fileName is required");
+    }
 
-    const bucket = "turnity-submissions-593471320214";
-
-    const fileKey = `submissions/${Date.now()}-${fileName}`;
+    const fileKey = `uploads/${Date.now()}-${fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: fileKey,
-      ContentType: contentType
+      ContentType: contentType,
     });
 
-    const uploadUrl = await getSignedUrl(s3, command, {
-      expiresIn: 300
-    });
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
 
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
-      body: JSON.stringify({
-        uploadUrl,
-        fileKey
-      })
-    };
+    return ok({
+      uploadUrl,
+      fileKey,
+      publicUrl: "",
+    });
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: error.message
-      })
-    };
+    if (error?.message === "Unauthorized") return unauthorized();
+    return internalError(
+      error instanceof Error ? error.message : "Failed to create upload URL"
+    );
   }
-};
+}

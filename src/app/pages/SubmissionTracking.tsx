@@ -26,10 +26,12 @@ import {
 import { toast } from "sonner";
 import { PageBackButton } from "../components/PageBackButton";
 import {
+  gradeSubmission as gradeSubmissionRequest,
   getAssignmentById,
   getCourseById,
   listStudents,
   listSubmissions,
+  requestPresignedDownload,
 } from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
 
@@ -93,8 +95,29 @@ export function SubmissionTracking() {
     return <div className="p-6">Assignment not found</div>;
   }
 
-  // Combine student and submission data
-  const studentSubmissions = students.map(student => {
+  const submittedStudentRows = localSubmissions
+    .filter((submission) => submission.assignmentId === assignmentId)
+    .map((submission) => {
+      const existingStudent = students.find((student) => student.id === submission.studentId);
+      const displayName =
+        existingStudent?.name ||
+        (submission.studentId === "student-demo" ? "Student Demo" : submission.studentId);
+
+      return {
+        id: submission.studentId,
+        name: displayName,
+        email:
+          existingStudent?.email ||
+          (submission.studentId === "student-demo"
+            ? "student.demo@turnity.local"
+            : `${submission.studentId}@turnity.local`),
+        avatar: existingStudent?.avatar || "",
+        submission,
+      };
+    });
+
+  // Combine student and submission data. If the student API is empty, submitted rows still appear.
+  const rosterRows = students.map(student => {
     const submission = localSubmissions.find(
       s => s.studentId === student.id && s.assignmentId === assignmentId
     );
@@ -103,6 +126,11 @@ export function SubmissionTracking() {
       submission: submission || null,
     };
   });
+  const rosterIds = new Set(rosterRows.map((student) => student.id));
+  const studentSubmissions = [
+    ...rosterRows,
+    ...submittedStudentRows.filter((row) => !rosterIds.has(row.id)),
+  ];
 
   // Filter logic
   const filteredSubmissions = studentSubmissions.filter(item => {
@@ -173,7 +201,31 @@ export function SubmissionTracking() {
   const selectedSubmission =
     studentSubmissions.find((item) => item.id === selectedStudentId) ?? null;
 
-  const saveGrade = (studentId: string) => {
+  const exportToCSV = () => {
+    const escapeCsv = (value: unknown) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const headers = ["Student", "Email", "Status", "Score", "Submitted At"].join(",");
+    const rows = filteredSubmissions.map((item) =>
+      [
+        item.name,
+        item.email,
+        item.submission?.status ?? "missing",
+        item.submission?.score ?? "",
+        item.submission?.submittedAt ?? "",
+      ].map(escapeCsv).join(",")
+    );
+    const blob = new Blob([[headers, ...rows].join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${assignment.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "submissions"}-grades.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const saveGrade = async (studentId: string) => {
     const rawGrade = gradeDrafts[studentId];
     const numericGrade = Number(rawGrade);
 
@@ -182,10 +234,23 @@ export function SubmissionTracking() {
       return;
     }
 
+    if (!courseId || !assignmentId) return;
+
+    const updated = await gradeSubmissionRequest(
+      courseId,
+      assignmentId,
+      studentId,
+      numericGrade
+    );
+
     setLocalSubmissions((current) =>
       current.map((submission) =>
         submission.studentId === studentId && submission.assignmentId === assignmentId
-          ? { ...submission, score: numericGrade }
+          ? {
+              ...submission,
+              score: updated?.score ?? numericGrade,
+              feedback: updated?.feedback ?? submission.feedback,
+            }
           : submission
       )
     );
@@ -195,24 +260,42 @@ export function SubmissionTracking() {
   const getSubmissionPreview = () => {
     if (!selectedSubmission?.submission) return null;
 
-    if (assignment.type === "text") {
+    if (assignment.type === "link" && selectedSubmission.submission.text) {
       return {
-        title: "Text Submission",
-        body: `${selectedSubmission.name} submitted a written response for "${assignment.title}". This is a mock preview for frontend testing.`,
+        title: "Submitted Link",
+        body: selectedSubmission.submission.text,
       };
     }
 
-    if (assignment.type === "link") {
+    if (selectedSubmission.submission.text) {
       return {
-        title: "Submitted Link",
-        body: `https://projects.example.edu/${selectedSubmission.name.toLowerCase().replace(/\s+/g, "-")}/${assignment.id}`,
+        title: "Text Submission",
+        body: selectedSubmission.submission.text,
       };
     }
 
     return {
       title: "Submitted Files",
-      body: `${selectedSubmission.name}_assignment_${assignment.id}.pdf\n${selectedSubmission.name}_appendix.zip`,
+      body:
+        selectedSubmission.submission.fileName ??
+        selectedSubmission.submission.fileUrl ??
+        "No file metadata found",
     };
+  };
+
+  const downloadSelectedSubmission = async () => {
+    const fileKey = selectedSubmission?.submission?.fileUrl;
+    if (!fileKey) {
+      toast.error("No downloadable file is attached to this submission");
+      return;
+    }
+
+    try {
+      const { downloadUrl } = await requestPresignedDownload(fileKey);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to open download");
+    }
   };
 
   return (
@@ -353,7 +436,7 @@ export function SubmissionTracking() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Student Submissions</CardTitle>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -499,7 +582,9 @@ export function SubmissionTracking() {
         </p>
         <div className="flex gap-2">
           <Button variant="outline">Send Reminder to Missing</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">Grade All Submissions</Button>
+          <Button className="bg-blue-600 hover:bg-blue-700" disabled>
+            Grade All Submissions (Coming Soon)
+          </Button>
         </div>
       </div>
 
@@ -539,6 +624,12 @@ export function SubmissionTracking() {
             </div>
           ) : null}
           <DialogFooter>
+            {selectedSubmission?.submission?.fileUrl ? (
+              <Button onClick={downloadSelectedSubmission}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => setSelectedStudentId(null)}>
               Close
             </Button>

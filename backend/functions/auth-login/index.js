@@ -1,5 +1,11 @@
-import { badRequest, internalError, ok, unauthorized, parseBody } from "../../shared/http.js";
-import { verifyWithTuApi } from "../../shared/auth.js";
+import {
+  badRequest,
+  internalError,
+  ok,
+  unauthorized,
+  parseBody,
+} from "../../shared/http.js";
+import { authenticateUser, createAccessToken, createRefreshToken } from "../../shared/auth.js";
 
 export async function handler(event) {
   try {
@@ -11,17 +17,24 @@ export async function handler(event) {
       return badRequest("username and password are required");
     }
 
-    const profile = await verifyWithTuApi({ username, password });
+    const { profile, user } = await authenticateUser({ username, password });
+
+    const accessTokenTtl = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 28800);
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     return ok({
-      accessToken: `dev-token-${username}`,
-      refreshToken: `dev-refresh-${username}`,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 8).toISOString(),
+      accessToken: createAccessToken(user.userId, user.role),
+      refreshToken: createRefreshToken(user.userId),
+      expiresAt: nowSeconds + accessTokenTtl,
       profile,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed";
-    if (message.toLowerCase().includes("failed")) {
+    if (
+      message.toLowerCase().includes("failed") ||
+      message.toLowerCase().includes("invalid") ||
+      message.toLowerCase().includes("authentication")
+    ) {
       return unauthorized(message);
     }
     if (message.includes("required") || message.includes("Invalid JSON")) {

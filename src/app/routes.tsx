@@ -12,6 +12,10 @@ import { RootLayout } from "./layouts/RootLayout";
 import { NotFound } from "./pages/NotFound";
 import { UpcomingDeadlinesPage } from "./pages/UpcomingDeadlinesPage";
 import { SearchResultsPage } from "./pages/SearchResultsPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { AnalyticsDashboard } from "./pages/AnalyticsDashboard";
+import { InstructorAnalyticsLanding } from "./pages/InstructorAnalyticsLanding";
+import { DiscussionDetailPage } from "./pages/DiscussionDetailPage";
 import { HomeRedirect } from "@/features/auth/HomeRedirect";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
@@ -40,6 +44,8 @@ export const router = createBrowserRouter([
               { path: "course/:courseId", Component: ClassroomPage },
               { path: "course/:courseId/assignment/:assignmentId", Component: AssignmentDetail },
               { path: "course/:courseId/assignment/:assignmentId/submit", Component: AssignmentSubmission },
+              { path: "course/:courseId/discussion/:discussionId", Component: DiscussionDetailPage },
+              { path: "profile", Component: ProfilePage },
             ],
           },
           {
@@ -50,9 +56,13 @@ export const router = createBrowserRouter([
               { path: "instructor/search", Component: SearchResultsPage },
               { path: "instructor/deadlines", Component: UpcomingDeadlinesPage },
               { path: "instructor/notifications", Component: NotificationsPage },
+              { path: "instructor/analytics", Component: InstructorAnalyticsLanding },
               { path: "instructor/course/:courseId", Component: ClassroomPage },
               { path: "instructor/course/:courseId/assignment/:assignmentId", Component: InstructorAssignmentDetail },
               { path: "instructor/course/:courseId/assignment/:assignmentId/tracking", Component: SubmissionTracking },
+              { path: "instructor/profile", Component: ProfilePage },
+              { path: "instructor/course/:courseId/analytics", Component: AnalyticsDashboard },
+              { path: "instructor/course/:courseId/discussion/:discussionId", Component: DiscussionDetailPage },
             ],
           },
           { path: "*", Component: NotFound },

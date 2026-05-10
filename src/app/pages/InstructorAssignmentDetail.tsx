@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -21,8 +21,9 @@ import {
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
 import { toast } from "sonner";
-import { deleteAssignment, getAssignmentById, getCourseById } from "@/lib/data/repository";
+import { deleteAssignment, getAssignmentById, getCourseById, updateAssignment } from "@/lib/data/repository";
 import { useAsyncData } from "@/lib/hooks/useAsyncData";
+import type { Assignment } from "@/lib/types/models";
 
 
 export function InstructorAssignmentDetail() {
@@ -32,10 +33,12 @@ export function InstructorAssignmentDetail() {
   const [showEditDeadlineModal, setShowEditDeadlineModal] = useState(false);
   const [showEditAssignmentModal, setShowEditAssignmentModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingAssignment, setDeletingAssignment] = useState(false);
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
 
   const [editAssignmentData, setEditAssignmentData] = useState<Partial<AssignmentFormData> | null>(null);
+  const [localAssignment, setLocalAssignment] = useState<Assignment | null>(null);
 
   const { data: course, loading: courseLoading } = useAsyncData(
     () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
@@ -49,6 +52,10 @@ export function InstructorAssignmentDetail() {
     [courseId, assignmentId]
   );
 
+  useEffect(() => {
+    setLocalAssignment(assignment);
+  }, [assignment]);
+
   if (courseLoading || assignmentLoading) {
     return <div className="p-6">Loading assignment...</div>;
   }
@@ -57,9 +64,11 @@ export function InstructorAssignmentDetail() {
     return <div className="p-6">Assignment not found</div>;
   }
 
+  const currentAssignment = localAssignment ?? assignment;
+
   // Initialize edit fields with current deadline
   const initializeEditFields = () => {
-    const dueDate = new Date(assignment.dueDate);
+    const dueDate = new Date(currentAssignment.dueDate);
     const dateStr = dueDate.toISOString().split('T')[0];
     const timeStr = dueDate.toTimeString().slice(0, 5);
     setEditDate(dateStr);
@@ -71,16 +80,24 @@ export function InstructorAssignmentDetail() {
     setShowEditDeadlineModal(true);
   };
 
-  const handleSaveDeadline = () => {
+  const handleSaveDeadline = async () => {
     if (!editDate || !editTime) {
       toast.error("Please select both date and time");
       return;
     }
 
-    // In a real app, this would update the backend
-    // For now, we'll just show a success message
     const newDeadline = new Date(`${editDate}T${editTime}`);
-    
+    if (!courseId || !assignmentId) return;
+
+    const updated = await updateAssignment(courseId, assignmentId, {
+      dueDate: newDeadline.toISOString(),
+    });
+    if (!updated) {
+      toast.error("Unable to update deadline");
+      return;
+    }
+
+    setLocalAssignment(updated);
     toast.success("Deadline updated successfully!");
     toast.info(`New deadline: ${newDeadline.toLocaleString()}`);
     
@@ -88,16 +105,16 @@ export function InstructorAssignmentDetail() {
   };
 
   const handleEditAssignmentClick = () => {
-    const dueDate = new Date(assignment.dueDate);
+    const dueDate = new Date(currentAssignment.dueDate);
     setEditAssignmentData({
-      title: assignment.title,
-      description: assignment.description,
-      points: assignment.points,
-      latePolicy: assignment.latePolicy,
+      title: currentAssignment.title,
+      description: currentAssignment.description,
+      points: currentAssignment.points,
+      latePolicy: currentAssignment.latePolicy,
       dueDate: dueDate.toISOString().split('T')[0],
       dueTime: dueDate.toTimeString().slice(0, 5),
-      type: (assignment.type as AssignmentFormData['type']) ?? 'file',
-      attachments: (assignment.attachments ?? []).map((a, i) => ({
+      type: (currentAssignment.type as AssignmentFormData['type']) ?? 'file',
+      attachments: (currentAssignment.attachments ?? []).map((a, i) => ({
         id: `existing-${i}`,
         name: a.name,
         type: 'url' as const,
@@ -107,24 +124,50 @@ export function InstructorAssignmentDetail() {
     setShowEditAssignmentModal(true);
   };
 
-  const handleSaveAssignment = (data: AssignmentFormData) => {
-    // In a real app this would call the backend
+  const handleSaveAssignment = async (data: AssignmentFormData) => {
+    if (!courseId || !assignmentId) return;
+
+    const updated = await updateAssignment(courseId, assignmentId, {
+      title: data.title,
+      description: data.description,
+      points: data.points,
+      type: data.type,
+      dueDate: new Date(`${data.dueDate}T${data.dueTime}`).toISOString(),
+      latePolicy: data.latePolicy,
+      attachments: data.attachments.map((attachment) => ({
+        name: attachment.name,
+        url: attachment.url ?? "",
+      })),
+    });
+    if (!updated) {
+      toast.error("Unable to update assignment");
+      return;
+    }
+
+    setLocalAssignment(updated);
     toast.success("Assignment updated successfully!");
-    toast.info(`"${data.title}" saved with ${data.attachments.length} attachment(s)`);
     setShowEditAssignmentModal(false);
   };
 
   const handleDeleteAssignment = async () => {
     if (!courseId || !assignmentId) return;
 
-    const deleted = await deleteAssignment(courseId, assignmentId);
-    if (!deleted) {
-      toast.error("Unable to delete assignment");
-      return;
-    }
+    setDeletingAssignment(true);
+    try {
+      const deleted = await deleteAssignment(courseId, assignmentId);
+      if (!deleted) {
+        toast.error("Unable to delete assignment");
+        return;
+      }
 
-    toast.success("Assignment deleted");
-    navigate(`/instructor/course/${courseId}`);
+      toast.success("Assignment deleted");
+      setShowDeleteDialog(false);
+      navigate(`/instructor/course/${courseId}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete assignment");
+    } finally {
+      setDeletingAssignment(false);
+    }
   };
 
   const getDaysUntil = (dueDate: string) => {
@@ -159,10 +202,10 @@ export function InstructorAssignmentDetail() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline">{course.code}</Badge>
-                    <Badge variant="outline">{assignment.type}</Badge>
+                    <Badge variant="outline">{currentAssignment.type}</Badge>
                     <Badge className="bg-blue-600">Instructor View</Badge>
                   </div>
-                  <CardTitle className="text-2xl mb-2">{assignment.title}</CardTitle>
+                  <CardTitle className="text-2xl mb-2">{currentAssignment.title}</CardTitle>
                   <p className="text-sm text-gray-600">{course.name} • {course.instructor}</p>
                 </div>
                 <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center", course.color)}>
@@ -178,15 +221,15 @@ export function InstructorAssignmentDetail() {
               <CardTitle className="text-lg">Assignment Description</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-700 leading-relaxed">{assignment.description}</p>
+              <p className="text-gray-700 leading-relaxed">{currentAssignment.description}</p>
               
-              {assignment.attachments && assignment.attachments.length > 0 && (
+              {currentAssignment.attachments && currentAssignment.attachments.length > 0 && (
                 <>
                   <Separator />
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3">Attachments</h3>
                     <div className="space-y-2">
-                      {assignment.attachments.map((attachment, index) => (
+                      {currentAssignment.attachments.map((attachment, index) => (
                         <div 
                           key={index}
                           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
@@ -220,7 +263,7 @@ export function InstructorAssignmentDetail() {
                 <div className="flex items-center gap-2 text-gray-900">
                   <Calendar className="h-4 w-4" />
                   <span className="font-medium">
-                    {new Date(assignment.dueDate).toLocaleString('en-US', {
+                    {new Date(currentAssignment.dueDate).toLocaleString('en-US', {
                       weekday: 'short',
                       month: 'short',
                       day: 'numeric',
@@ -230,7 +273,7 @@ export function InstructorAssignmentDetail() {
                     })}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{getDaysUntil(assignment.dueDate)}</p>
+                <p className="text-sm text-gray-500 mt-1">{getDaysUntil(currentAssignment.dueDate)}</p>
               </div>
 
               <Separator />
@@ -238,7 +281,7 @@ export function InstructorAssignmentDetail() {
               {/* Points */}
               <div>
                 <p className="text-sm text-gray-600 mb-2">Points</p>
-                <p className="text-2xl font-bold text-gray-900">{assignment.points}</p>
+                <p className="text-2xl font-bold text-gray-900">{currentAssignment.points}</p>
               </div>
 
               <Separator />
@@ -246,7 +289,7 @@ export function InstructorAssignmentDetail() {
               {/* Late Policy */}
               <div>
                 <p className="text-sm text-gray-600 mb-2">Late Policy</p>
-                <p className="text-sm text-gray-700">{assignment.latePolicy}</p>
+                <p className="text-sm text-gray-700">{currentAssignment.latePolicy}</p>
               </div>
 
               <Separator />
@@ -307,7 +350,7 @@ export function InstructorAssignmentDetail() {
               <Separator />
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Submission Type</span>
-                <Badge variant="outline">{assignment.type}</Badge>
+                <Badge variant="outline">{currentAssignment.type}</Badge>
               </div>
             </CardContent>
           </Card>
@@ -391,7 +434,7 @@ export function InstructorAssignmentDetail() {
           <DialogHeader>
             <DialogTitle>Delete Assignment</DialogTitle>
             <DialogDescription>
-              This will remove "{assignment.title}" from this course. This action cannot be undone.
+              This will remove "{currentAssignment.title}" from this course. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -400,9 +443,10 @@ export function InstructorAssignmentDetail() {
             </Button>
             <Button
               className="bg-red-600 hover:bg-red-700"
+              disabled={deletingAssignment}
               onClick={handleDeleteAssignment}
             >
-              Delete Assignment
+              {deletingAssignment ? "Deleting..." : "Delete Assignment"}
             </Button>
           </DialogFooter>
         </DialogContent>

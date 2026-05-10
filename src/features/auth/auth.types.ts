@@ -47,10 +47,12 @@ export type AuthUser = {
   tuType: TuApiAccountType;
   department: string;
   facultyOrOrganization: string;
+  avatarUrl?: string;
 };
 
 export type AuthSession = {
   accessToken: string;
+  refreshToken?: string;
   expiresAt: string;
   user: AuthUser;
   activeRole: AppRole;

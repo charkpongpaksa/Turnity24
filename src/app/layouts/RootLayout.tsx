@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation } from "react-router";
+import { Link, Outlet, useNavigate, useLocation } from "react-router";
 import { 
   Home, 
   BookOpen, 
@@ -8,6 +8,9 @@ import {
   Menu,
   X,
   FileText,
+  User,
+  LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -66,6 +69,7 @@ export function RootLayout() {
   const instructorNavItems = [
     { icon: Home, label: "Dashboard", path: "/instructor", key: "instructor-dashboard" },
     { icon: BookOpen, label: "My Courses", path: "/instructor/courses", key: "instructor-courses" },
+    { icon: BarChart3, label: "Analytics", path: "/instructor/analytics", key: "instructor-analytics" },
   ];
 
   const navItems = isInstructorView ? instructorNavItems : studentNavItems;
@@ -313,6 +317,10 @@ export function RootLayout() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>{session?.user.email}</DropdownMenuItem>
                 <DropdownMenuItem>{session?.user.role}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile Dashboard</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={isLoggingOut}
@@ -340,16 +348,15 @@ export function RootLayout() {
               const isActive = location.pathname === item.path;
               return (
                 <Button
+                  asChild
                   key={item.key}
                   variant={isActive ? "secondary" : "ghost"}
                   className="w-full justify-start gap-3"
-                  onClick={() => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  }}
                 >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
+                  <Link to={item.path} onClick={() => setSidebarOpen(false)}>
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                  </Link>
                 </Button>
               );
             })}

@@ -1,6 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { login, logout, restoreSession } from "./auth.service";
-import { tokenStore } from "@/lib/apiClient";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authSessionStore } from "./auth.storage";
+
+vi.mock("@/lib/config/env", () => ({
+  appConfig: {
+    dataSource: "mock",
+    apiBaseUrl: "",
+  },
+}));
+
+let login: typeof import("./auth.service").login;
+let logout: typeof import("./auth.service").logout;
+let restoreSession: typeof import("./auth.service").restoreSession;
+
+beforeEach(async () => {
+  const authService = await import("./auth.service");
+  login = authService.login;
+  logout = authService.logout;
+  restoreSession = authService.restoreSession;
+});
 
 describe("auth.service", () => {
   it("creates a student session in mock mode", async () => {
@@ -31,6 +48,6 @@ describe("auth.service", () => {
     await logout();
 
     expect(restoreSession()).toBeNull();
-    expect(tokenStore.get()).toBeNull();
+    expect(authSessionStore.get()).toBeNull();
   });
 });

@@ -7,10 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Progress } from "../components/ui/progress";
-import { BookOpen, Calendar, Pencil, Plus, Users } from "lucide-react";
+import { BookOpen, Calendar, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { cn } from "../components/ui/utils";
 import {
   createCourse,
+  deleteCourse,
+  enrollInCourse,
   listCourses,
   updateCourse,
 } from "@/lib/data/repository";
@@ -32,6 +34,8 @@ export function AllCourses() {
   const [localCourses, setLocalCourses] = useState(courses);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
+  const [creatingCourse, setCreatingCourse] = useState(false);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editInstructor, setEditInstructor] = useState("");
@@ -91,17 +95,60 @@ export function AllCourses() {
       return;
     }
 
-    const createdCourse = await createCourse({
-      name: editName,
-      code: editCode,
-      instructor: editInstructor,
-    });
-    setLocalCourses((current) => [createdCourse, ...current]);
-    toast.success("Course created");
-    setShowCreateCourseModal(false);
-    setEditName("");
-    setEditCode("");
-    setEditInstructor("");
+    setCreatingCourse(true);
+    try {
+      const createdCourse = await createCourse({
+        name: editName.trim(),
+        code: editCode.trim(),
+        instructor: editInstructor.trim(),
+      });
+      setLocalCourses((current) => [
+        createdCourse,
+        ...current.filter((course) => course.id !== createdCourse.id),
+      ]);
+      toast.success("Course created");
+      setShowCreateCourseModal(false);
+      setEditName("");
+      setEditCode("");
+      setEditInstructor("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to create course");
+    } finally {
+      setCreatingCourse(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm("Are you sure you want to delete this course? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingCourseId(courseId);
+    try {
+      const success = await deleteCourse(courseId);
+      if (success) {
+        setLocalCourses((current) => current.filter((c) => c.id !== courseId));
+        toast.success("Course deleted successfully");
+      } else {
+        toast.error("Failed to delete the course");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete the course");
+    } finally {
+      setDeletingCourseId(null);
+    }
+  };
+
+  const handleEnrollCourse = async (courseId: string) => {
+    const success = await enrollInCourse(courseId);
+    if (success) {
+      toast.success("Enrolled in course successfully!");
+      // Optionally refresh list or mark as enrolled
+      const updatedData = await listCourses();
+      setLocalCourses(updatedData);
+    } else {
+      toast.error("Failed to enroll in the course");
+    }
   };
 
   return (
@@ -179,27 +226,54 @@ export function AllCourses() {
                 )}
                 <div className="flex items-center justify-between text-sm pt-2">
                   {isInstructorView ? (
-                    <div className="flex w-full items-center justify-between gap-3">
+                    <div className="flex w-full items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-gray-600">
                         <Users className="h-4 w-4" />
-                        <span>{course.students} students</span>
+                        <span>{course.students}</span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openEditDialog(course.id);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit Course
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditDialog(course.id);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                          disabled={deletingCourseId === course.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteCourse(course.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      <span>Next: {new Date(course.nextDeadline).toLocaleDateString()}</span>
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4" />
+                        <span>Next: {new Date(course.nextDeadline).toLocaleDateString()}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleEnrollCourse(course.id);
+                        }}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Enroll
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -294,11 +368,19 @@ export function AllCourses() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateCourseModal(false)}>
+            <Button
+              variant="outline"
+              disabled={creatingCourse}
+              onClick={() => setShowCreateCourseModal(false)}
+            >
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreateCourse}>
-              Create Course
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={creatingCourse}
+              onClick={handleCreateCourse}
+            >
+              {creatingCourse ? "Creating..." : "Create Course"}
             </Button>
           </DialogFooter>
         </DialogContent>

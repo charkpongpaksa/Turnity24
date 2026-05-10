@@ -1,17 +1,34 @@
-import { badRequest, created, internalError, parseBody } from "../../shared/http.js";
-import { createComment } from "../../shared/dynamo.js";
+import {
+  badRequest,
+  created,
+  internalError,
+  parseBody,
+  unauthorized,
+} from "../../shared/http.js";
+import { requireAuthenticatedUser } from "../../shared/auth.js";
+import { createComment, getDiscussionById } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {
+    const user = await requireAuthenticatedUser(event);
+    const courseId = event.pathParameters.courseId;
     const discussionId = event.pathParameters.discussionId;
     const body = parseBody(event);
 
-    if (!body.content || !body.authorId || !body.authorName) {
-      return badRequest("Missing required fields: content, authorId, authorName");
+    if (!body.content) {
+      return badRequest("Missing required field: content");
     }
 
-    return created(await createComment(discussionId, body));
+    await createComment(discussionId, {
+      content: body.content,
+      authorId: user.userId,
+      authorName: user.nameEn || user.username,
+      authorRole: user.role,
+    });
+    return created(await getDiscussionById(courseId, discussionId));
   } catch (error) {
-    return internalError(error instanceof Error ? error.message : "Failed to create reply");
+    const message = error instanceof Error ? error.message : "Failed to create reply";
+    if (message === "Unauthorized") return unauthorized(message);
+    return internalError(message);
   }
 }

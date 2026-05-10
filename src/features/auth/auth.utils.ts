@@ -26,12 +26,14 @@ export function mapTuProfileToAuthUser(profile: TuApiProfile): AuthUser {
 
 export function buildAuthSession(input: {
   accessToken: string;
+  refreshToken?: string;
   expiresAt: string;
   profile: TuApiProfile;
 }): AuthSession {
   const user = mapTuProfileToAuthUser(input.profile);
   return {
     accessToken: input.accessToken,
+    refreshToken: input.refreshToken,
     expiresAt: input.expiresAt,
     user,
     activeRole: user.role,

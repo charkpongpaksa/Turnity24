@@ -1,10 +1,13 @@
 import {
   badRequest,
+  forbidden,
   internalError,
   notFound,
   ok,
   parseBody,
+  unauthorized,
 } from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
 import {
   addStudentToCourse,
   getCourseById,
@@ -14,6 +17,7 @@ import {
 
 export async function handler(event) {
   try {
+    await requireRole(event, ["instructor"]);
     const courseId = event?.pathParameters?.courseId;
     const studentIdFromPath = event?.pathParameters?.studentId;
     const course = await getCourseById(courseId);
@@ -49,6 +53,8 @@ export async function handler(event) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to manage course students";
+    if (message === "Unauthorized") return unauthorized(message);
+    if (message === "Forbidden") return forbidden(message);
     if (message.includes("required") || message.includes("Invalid JSON")) {
       return badRequest(message);
     }

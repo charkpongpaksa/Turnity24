@@ -1,12 +1,20 @@
-import { internalError, ok } from "../../shared/http.js";
-import { listSubmissions } from "../../shared/dynamo.js";
+import { internalError, ok, unauthorized } from "./shared/http.js";
+import { requireAuthenticatedUser } from "./shared/auth.js";
+import { listSubmissions } from "./shared/dynamo.js";
 
 export async function handler(event) {
   try {
+    const user = await requireAuthenticatedUser(event);
     const assignmentId = event.pathParameters.assignmentId;
-    return ok(await listSubmissions(assignmentId));
+    const submissions = await listSubmissions(assignmentId);
+    return ok(
+      user.role === "instructor"
+        ? submissions
+        : submissions.filter((submission) => submission.studentId === user.userId)
+    );
   } catch (error) {
-    return internalError(error instanceof Error ? error.message : "Failed to list submissions");
+    const message = error instanceof Error ? error.message : "Failed to list submissions";
+    if (message === "Unauthorized") return unauthorized(message);
+    return internalError(message);
   }
 }
-

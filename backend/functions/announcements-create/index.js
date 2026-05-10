@@ -1,8 +1,16 @@
-import { created, internalError, badRequest } from "../../shared/http.js";
+import {
+  badRequest,
+  created,
+  forbidden,
+  internalError,
+  unauthorized,
+} from "../../shared/http.js";
+import { requireRole } from "../../shared/auth.js";
 import { createAnnouncement } from "../../shared/dynamo.js";
 
 export async function handler(event) {
   try {
+    await requireRole(event, ["instructor"]);
     const courseId = event.pathParameters.courseId;
     const body = JSON.parse(event.body || "{}");
 
@@ -13,6 +21,10 @@ export async function handler(event) {
     const result = await createAnnouncement(courseId, body);
     return created(result);
   } catch (error) {
-    return internalError(error instanceof Error ? error.message : "Failed to create announcement");
+    const message =
+      error instanceof Error ? error.message : "Failed to create announcement";
+    if (message === "Unauthorized") return unauthorized(message);
+    if (message === "Forbidden") return forbidden(message);
+    return internalError(message);
   }
 }

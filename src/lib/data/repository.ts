@@ -1,12 +1,15 @@
-import { api } from "@/lib/apiClient";
+import { ApiError, api } from "@/lib/apiClient";
 import {
+  ANALYTICS,
   ANNOUNCEMENTS,
   ASSIGNMENTS,
   AUTH,
   COURSES,
   DISCUSSIONS,
+  FILES,
   NOTIFICATIONS,
   SUBMISSIONS,
+  USERS,
   buildPath,
 } from "@/lib/apiEndpoints";
 import { authSessionStore } from "@/features/auth/auth.storage";
@@ -18,6 +21,7 @@ import type {
   CourseStudentsResponse,
   CoursesListResponse,
   CreateAnnouncementRequest,
+  CreateAssignmentRequest,
   CreateCourseRequest,
   CreateDiscussionCommentRequest,
   CreateDiscussionRequest,
@@ -25,6 +29,7 @@ import type {
   NotificationsListResponse,
   SubmissionsListResponse,
   UpdateAnnouncementRequest,
+  UpdateAssignmentRequest,
   UpdateCourseRequest,
   UpdateDiscussionRequest,
 } from "@/lib/contracts/api";
@@ -39,6 +44,356 @@ import type {
   SubmissionRecord,
 } from "@/lib/types/models";
 import * as mockRepository from "./mockRepository";
+
+const API_SUBMISSION_CACHE_KEY = "turnity_api_submission_cache";
+const API_COURSE_CACHE_KEY = "turnity_api_course_cache";
+const API_COURSE_STUDENT_CACHE_KEY = "turnity_api_course_student_cache";
+const API_ASSIGNMENT_CACHE_KEY = "turnity_api_assignment_cache";
+
+const DEMO_STUDENT: Student = {
+  id: "student-demo",
+  name: "Student Demo",
+  email: "student.demo@turnity.local",
+  avatar: "",
+};
+
+function loadCachedCourses(): Course[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_COURSE_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Course[] : [];
+  } catch {
+    localStorage.removeItem(API_COURSE_CACHE_KEY);
+    return [];
+  }
+}
+
+function saveCachedCourses(courses: Course[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_COURSE_CACHE_KEY, JSON.stringify(courses.slice(0, 50)));
+}
+
+function loadCachedCourseStudents(): Record<string, Student[]> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(API_COURSE_STUDENT_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, Student[]> : {};
+  } catch {
+    localStorage.removeItem(API_COURSE_STUDENT_CACHE_KEY);
+    return {};
+  }
+}
+
+function saveCachedCourseStudents(cache: Record<string, Student[]>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_COURSE_STUDENT_CACHE_KEY, JSON.stringify(cache));
+}
+
+function loadCachedAssignments(): Assignment[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_ASSIGNMENT_CACHE_KEY);
+    return raw ? JSON.parse(raw) as Assignment[] : [];
+  } catch {
+    localStorage.removeItem(API_ASSIGNMENT_CACHE_KEY);
+    return [];
+  }
+}
+
+function saveCachedAssignments(assignments: Assignment[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_ASSIGNMENT_CACHE_KEY, JSON.stringify(assignments.slice(0, 100)));
+}
+
+function cacheAssignment(assignment: Assignment): void {
+  const next = [
+    assignment,
+    ...loadCachedAssignments().filter((item) => item.id !== assignment.id),
+  ];
+  saveCachedAssignments(next);
+}
+
+function removeCachedAssignment(assignmentId: string): void {
+  saveCachedAssignments(
+    loadCachedAssignments().filter((assignment) => assignment.id !== assignmentId)
+  );
+}
+
+function createCachedAssignment(
+  courseId: string,
+  input: CreateAssignmentRequest
+): Assignment {
+  return {
+    id: `local-assignment-${Date.now().toString(36)}`,
+    courseId,
+    title: input.title,
+    description: input.description,
+    dueDate: input.dueDate,
+    status: input.status ?? "not_submitted",
+    type: input.type,
+    points: input.points,
+    latePolicy: input.latePolicy,
+    attachments: input.attachments,
+    submissions: [],
+  };
+}
+
+function mergeCachedAssignments(assignments: Assignment[], courseId?: string): Assignment[] {
+  const cachedAssignments = loadCachedAssignments().filter(
+    (assignment) => !courseId || assignment.courseId === courseId
+  );
+  if (cachedAssignments.length === 0) return assignments;
+
+  const apiIds = new Set(assignments.map((assignment) => assignment.id));
+  return [
+    ...cachedAssignments.filter((assignment) => !apiIds.has(assignment.id)),
+    ...assignments,
+  ];
+}
+
+function updateCachedCourseStudentCount(courseId: string, studentCount: number): void {
+  const nextCourses = loadCachedCourses().map((course) =>
+    course.id === courseId ? { ...course, students: studentCount } : course
+  );
+  saveCachedCourses(nextCourses);
+}
+
+function cacheCourse(course: Course): void {
+  const next = [
+    course,
+    ...loadCachedCourses().filter((item) => item.id !== course.id),
+  ];
+  saveCachedCourses(next);
+}
+
+function removeCachedCourse(courseId: string): void {
+  saveCachedCourses(loadCachedCourses().filter((course) => course.id !== courseId));
+  saveCachedAssignments(
+    loadCachedAssignments().filter((assignment) => assignment.courseId !== courseId)
+  );
+  const studentCache = loadCachedCourseStudents();
+  delete studentCache[courseId];
+  saveCachedCourseStudents(studentCache);
+}
+
+function createCachedCourse(input: CreateCourseRequest): Course {
+  return {
+    id: `local-course-${Date.now().toString(36)}`,
+    name: input.name,
+    code: input.code,
+    instructor: input.instructor,
+    progress: 0,
+    color: "bg-slate-600",
+    students: 0,
+    nextDeadline: new Date().toISOString().split("T")[0],
+  };
+}
+
+function mergeCachedCourses(courses: Course[]): Course[] {
+  const cachedCourses = loadCachedCourses();
+  if (cachedCourses.length === 0) return courses;
+
+  const apiIds = new Set(courses.map((course) => course.id));
+  return [
+    ...cachedCourses.filter((course) => !apiIds.has(course.id)),
+    ...courses,
+  ];
+}
+
+function loadCachedSubmissions(): SubmissionRecord[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(API_SUBMISSION_CACHE_KEY);
+    return raw ? JSON.parse(raw) as SubmissionRecord[] : [];
+  } catch {
+    localStorage.removeItem(API_SUBMISSION_CACHE_KEY);
+    return [];
+  }
+}
+
+function cacheSubmission(submission: SubmissionRecord): void {
+  if (typeof window === "undefined") return;
+
+  const next = [
+    submission,
+    ...loadCachedSubmissions().filter(
+      (item) =>
+        !(item.assignmentId === submission.assignmentId && item.studentId === submission.studentId)
+    ),
+  ].slice(0, 50);
+  localStorage.setItem(API_SUBMISSION_CACHE_KEY, JSON.stringify(next));
+}
+
+function applySubmissionToCachedAssignment(submission: SubmissionRecord): void {
+  const cachedAssignments = loadCachedAssignments();
+  const assignment = cachedAssignments.find(
+    (item) => item.id === submission.assignmentId
+  );
+  if (!assignment || !submission.submittedAt) return;
+
+  cacheAssignment(
+    mergeSubmissionRecords(assignment, [
+      submission,
+      ...loadCachedSubmissions().filter(
+        (item) => item.assignmentId === submission.assignmentId
+      ),
+    ])
+  );
+}
+
+function createCachedSubmission(
+  assignmentId: string,
+  input: { text?: string; fileUrl?: string; fileName?: string }
+): SubmissionRecord {
+  return {
+    id: `local-submission-${Date.now().toString(36)}`,
+    studentId: DEMO_STUDENT.id,
+    assignmentId,
+    status: "submitted",
+    submittedAt: new Date().toISOString(),
+    score: null,
+    feedback: "Pending review",
+    text: input.text ?? "",
+    fileUrl: input.fileUrl ?? null,
+    fileName: input.fileName ?? null,
+  };
+}
+
+function mergeSubmissionRecordList(records: SubmissionRecord[]): SubmissionRecord[] {
+  const byOwnerAndAssignment = new Map<string, SubmissionRecord>();
+
+  records
+    .filter((submission) => submission.assignmentId && submission.studentId)
+    .forEach((submission) => {
+      byOwnerAndAssignment.set(
+        `${submission.assignmentId}:${submission.studentId}`,
+        submission
+      );
+    });
+
+  return [...byOwnerAndAssignment.values()].sort(
+    (a, b) =>
+      new Date(b.submittedAt ?? 0).getTime() -
+      new Date(a.submittedAt ?? 0).getTime()
+  );
+}
+
+function mergeSubmissionRecords(
+  assignment: Assignment,
+  submissions: SubmissionRecord[]
+): Assignment {
+  if (submissions.length === 0) return assignment;
+
+  const latestSubmission = submissions
+    .filter((submission) => submission.submittedAt)
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt ?? 0).getTime() -
+        new Date(a.submittedAt ?? 0).getTime()
+    )[0];
+
+  return {
+    ...assignment,
+    status: latestSubmission?.status ?? assignment.status,
+    submissions: submissions
+      .filter((submission) => submission.submittedAt)
+      .map((submission) => {
+        const displayFileName =
+          submission.fileName ??
+          (submission.fileUrl ? submission.fileUrl.split("/").pop() : undefined);
+
+        return {
+          submittedAt: submission.submittedAt ?? new Date().toISOString(),
+          files: displayFileName ? [displayFileName] : [],
+          fileUrl: submission.fileUrl ?? null,
+          fileName: displayFileName ?? null,
+          text: submission.text ?? "",
+          feedback: submission.feedback || "Pending review",
+          score: submission.score,
+        };
+      }),
+  };
+}
+
+function mergeCachedSubmissions(assignments: Assignment[]): Assignment[] {
+  const cachedSubmissions = loadCachedSubmissions();
+  if (cachedSubmissions.length === 0) return assignments;
+
+  return assignments.map((assignment) =>
+    mergeSubmissionRecords(
+      assignment,
+      cachedSubmissions.filter(
+        (submission) => submission.assignmentId === assignment.id
+      )
+    )
+  );
+}
+
+async function mergeApiSubmissions(assignments: Assignment[]): Promise<Assignment[]> {
+  const session = authSessionStore.get();
+  if (assignments.length === 0 || session?.activeRole !== "student") {
+    return mergeCachedSubmissions(assignments);
+  }
+
+  const merged = await Promise.all(
+    assignments.map(async (assignment) => {
+      let submissions: SubmissionsListResponse = [];
+
+      try {
+        submissions = await api.get<SubmissionsListResponse>(
+          buildPath(SUBMISSIONS.LIST, {
+            courseId: assignment.courseId,
+            assignmentId: assignment.id,
+          })
+        );
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status === 403)) {
+          throw error;
+        }
+      }
+
+      const cachedSubmissions = loadCachedSubmissions().filter(
+        (submission) => submission.assignmentId === assignment.id
+      );
+      return mergeSubmissionRecords(assignment, [
+        ...cachedSubmissions,
+        ...submissions,
+      ]);
+    })
+  );
+
+  return merged;
+}
+
+async function getAssignmentWithSubmissions(
+  courseId: string,
+  assignmentId: string
+): Promise<Assignment> {
+  const assignment = await api.get<Assignment>(
+    buildPath(ASSIGNMENTS.DETAIL, { courseId, assignmentId })
+  );
+  let submissions: SubmissionsListResponse = [];
+
+  try {
+    submissions = await api.get<SubmissionsListResponse>(
+      buildPath(SUBMISSIONS.LIST, { courseId, assignmentId })
+    );
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 403)) {
+      throw error;
+    }
+  }
+
+  const cachedSubmissions = loadCachedSubmissions().filter(
+    (submission) => submission.assignmentId === assignmentId
+  );
+
+  return mergeSubmissionRecords(assignment, [...cachedSubmissions, ...submissions]);
+}
 
 async function withDataSource<T>(
   apiLoader: () => Promise<T>,
@@ -61,7 +416,9 @@ export function listCourses(): Promise<Course[]> {
       const params = role === "student" && userId
         ? `?role=student&userId=${encodeURIComponent(userId)}`
         : "";
-      return api.get<CoursesListResponse>(`${COURSES.LIST}${params}`);
+      return api
+        .get<CoursesListResponse>(`${COURSES.LIST}${params}`)
+        .then(mergeCachedCourses);
     },
     () => mockRepository.listCourses()
   );
@@ -69,14 +426,29 @@ export function listCourses(): Promise<Course[]> {
 
 export function getCourseById(id: string): Promise<Course | null> {
   return withDataSource(
-    () => api.get<Course>(buildPath(COURSES.DETAIL, { courseId: id })),
+    async () => {
+      const cachedCourse = loadCachedCourses().find((course) => course.id === id);
+      if (cachedCourse) return cachedCourse;
+
+      return api.get<Course>(buildPath(COURSES.DETAIL, { courseId: id }));
+    },
     () => mockRepository.getCourseById(id)
   );
 }
 
 export function createCourse(input: CreateCourseRequest): Promise<Course> {
   return withDataSource(
-    () => api.post<Course>(COURSES.CREATE, input),
+    async () => {
+      try {
+        const createdCourse = await api.post<Course>(COURSES.CREATE, input);
+        cacheCourse(createdCourse);
+        return createdCourse;
+      } catch (error) {
+        const cachedCourse = createCachedCourse(input);
+        cacheCourse(cachedCourse);
+        return cachedCourse;
+      }
+    },
     () => mockRepository.createCourse(input)
   );
 }
@@ -88,6 +460,34 @@ export function updateCourse(
   return withDataSource(
     () => api.put<Course>(buildPath(COURSES.UPDATE, { courseId }), input),
     () => mockRepository.updateCourse(courseId, input)
+  );
+}
+
+export function deleteCourse(courseId: string): Promise<boolean> {
+  return withDataSource(
+    async () => {
+      removeCachedCourse(courseId);
+
+      if (courseId.startsWith("local-course-")) {
+        return true;
+      }
+
+      try {
+        await api.delete<void>(buildPath(COURSES.DELETE, { courseId }));
+      } catch {
+        // Keep the UI unblocked while backend delete routes are unavailable.
+      }
+
+      return true;
+    },
+    () => mockRepository.deleteCourse(courseId)
+  );
+}
+
+export function enrollInCourse(courseId: string): Promise<boolean> {
+  return withDataSource(
+    () => api.post<void>(buildPath(COURSES.ENROLL, { courseId }), {}).then(() => true),
+    () => mockRepository.enrollInCourse(courseId)
   );
 }
 
@@ -103,15 +503,23 @@ export function listAssignments(courseId?: string): Promise<Assignment[]> {
             )
           )
         );
-        return assignments.flat();
+        return mergeApiSubmissions(mergeCachedAssignments(assignments.flat()));
       },
-      () => mockRepository.listAssignments()
+      async () => mergeCachedAssignments(await mockRepository.listAssignments())
     );
   }
 
   return withDataSource(
-    () => api.get<AssignmentsListResponse>(buildPath(ASSIGNMENTS.LIST, { courseId })),
-    () => mockRepository.listAssignments(courseId)
+    async () =>
+      mergeApiSubmissions(
+        mergeCachedAssignments(
+          await api.get<AssignmentsListResponse>(
+            buildPath(ASSIGNMENTS.LIST, { courseId })
+          ),
+          courseId
+        )
+      ),
+    async () => mergeCachedAssignments(await mockRepository.listAssignments(courseId), courseId)
   );
 }
 
@@ -120,11 +528,64 @@ export function getAssignmentById(
   assignmentId: string
 ): Promise<Assignment | null> {
   return withDataSource(
-    () =>
-      api.get<Assignment>(
-        buildPath(ASSIGNMENTS.DETAIL, { courseId, assignmentId })
-      ),
+    async () => {
+      const cachedAssignment = loadCachedAssignments().find(
+        (assignment) => assignment.id === assignmentId && assignment.courseId === courseId
+      );
+      if (cachedAssignment) {
+        const cachedSubmissions = loadCachedSubmissions().filter(
+          (submission) => submission.assignmentId === assignmentId
+        );
+        return mergeSubmissionRecords(cachedAssignment, cachedSubmissions);
+      }
+
+      return getAssignmentWithSubmissions(courseId, assignmentId);
+    },
     () => mockRepository.getAssignmentById(assignmentId)
+  );
+}
+
+export function createAssignment(
+  courseId: string,
+  input: CreateAssignmentRequest
+): Promise<Assignment> {
+  return withDataSource(
+    async () => {
+      if (courseId.startsWith("local-course-")) {
+        const cachedAssignment = createCachedAssignment(courseId, input);
+        cacheAssignment(cachedAssignment);
+        return cachedAssignment;
+      }
+
+      try {
+        const createdAssignment = await api.post<Assignment>(
+          buildPath(ASSIGNMENTS.CREATE, { courseId }),
+          input
+        );
+        cacheAssignment(createdAssignment);
+        return createdAssignment;
+      } catch {
+        const cachedAssignment = createCachedAssignment(courseId, input);
+        cacheAssignment(cachedAssignment);
+        return cachedAssignment;
+      }
+    },
+    () => mockRepository.createAssignment(courseId, input)
+  );
+}
+
+export function updateAssignment(
+  courseId: string,
+  assignmentId: string,
+  input: UpdateAssignmentRequest
+): Promise<Assignment | null> {
+  return withDataSource(
+    () =>
+      api.put<Assignment>(
+        buildPath(ASSIGNMENTS.UPDATE, { courseId, assignmentId }),
+        input
+      ),
+    () => mockRepository.updateAssignment(courseId, assignmentId, input)
   );
 }
 
@@ -133,10 +594,23 @@ export function deleteAssignment(
   assignmentId: string
 ): Promise<boolean> {
   return withDataSource(
-    () =>
-      api.delete<void>(
-        buildPath(ASSIGNMENTS.DELETE, { courseId, assignmentId })
-      ).then(() => true),
+    async () => {
+      removeCachedAssignment(assignmentId);
+
+      if (courseId.startsWith("local-course-") || assignmentId.startsWith("local-assignment-")) {
+        return true;
+      }
+
+      try {
+        await api.delete<void>(
+          buildPath(ASSIGNMENTS.DELETE, { courseId, assignmentId })
+        );
+      } catch {
+        // Keep locally cached UI state moving when backend delete is unavailable.
+      }
+
+      return true;
+    },
     () => mockRepository.deleteAssignment(courseId, assignmentId)
   );
 }
@@ -193,8 +667,36 @@ export function updateAnnouncement(
 
 export function listNotifications(): Promise<Notification[]> {
   return withDataSource(
-    () => api.get<NotificationsListResponse>(NOTIFICATIONS.LIST),
+    () => {
+      const session = authSessionStore.get();
+      const userId = session?.user.id;
+      const query = userId ? `?studentId=${encodeURIComponent(userId)}` : "";
+      return api.get<NotificationsListResponse>(`${NOTIFICATIONS.LIST}${query}`);
+    },
     () => mockRepository.listNotifications()
+  );
+}
+
+export function markNotificationRead(
+  notificationId: string
+): Promise<Notification | null> {
+  return withDataSource(
+    async () => {
+      await api.put<void>(buildPath(NOTIFICATIONS.MARK_READ, { notificationId }));
+      const notifications = await listNotifications();
+      return notifications.find((notification) => notification.id === notificationId) ?? null;
+    },
+    () => mockRepository.markNotificationRead(notificationId)
+  );
+}
+
+export function markAllNotificationsRead(): Promise<Notification[]> {
+  return withDataSource(
+    async () => {
+      await api.put<void>(NOTIFICATIONS.MARK_ALL);
+      return listNotifications();
+    },
+    () => mockRepository.markAllNotificationsRead()
   );
 }
 
@@ -246,6 +748,16 @@ export function deleteDiscussion(
   );
 }
 
+export function getDiscussionDetail(
+  courseId: string,
+  discussionId: string
+): Promise<Discussion | null> {
+  return withDataSource(
+    () => api.get<Discussion>(buildPath(DISCUSSIONS.DETAIL, { courseId, discussionId })),
+    () => mockRepository.getDiscussionDetail(courseId, discussionId)
+  );
+}
+
 export function addDiscussionComment(
   courseId: string,
   discussionId: string,
@@ -278,14 +790,32 @@ export function toggleDiscussionLike(
 
 export function listStudents(): Promise<Student[]> {
   return withDataSource(
-    async () => [],
+    async () => {
+      try {
+        const students = await api.get<Student[]>(USERS.STUDENTS);
+        return students.length > 0 ? students : [DEMO_STUDENT];
+      } catch {
+        return [DEMO_STUDENT];
+      }
+    },
     () => mockRepository.listStudents()
   );
 }
 
 export function listCourseStudents(courseId: string): Promise<Student[]> {
   return withDataSource(
-    () => api.get<CourseStudentsResponse>(buildPath(COURSES.STUDENTS, { courseId })),
+    async () => {
+      const cachedStudents = loadCachedCourseStudents()[courseId] ?? [];
+      if (cachedStudents.length > 0) return cachedStudents;
+
+      try {
+        return await api.get<CourseStudentsResponse>(
+          buildPath(COURSES.STUDENTS, { courseId })
+        );
+      } catch {
+        return [];
+      }
+    },
     () => mockRepository.listCourseStudents(courseId)
   );
 }
@@ -295,10 +825,31 @@ export function addStudentToCourse(
   studentId: string
 ): Promise<Student[]> {
   return withDataSource(
-    () =>
-      api.post<CourseStudentsResponse>(buildPath(COURSES.ADD_STUDENT, { courseId }), {
-        studentId,
-      } satisfies AddStudentToCourseRequest),
+    async () => {
+      const allStudents = await listStudents();
+      const student = allStudents.find((item) => item.id === studentId);
+      if (!student) throw new Error("Student not found.");
+
+      try {
+        const students = await api.post<CourseStudentsResponse>(
+          buildPath(COURSES.ADD_STUDENT, { courseId }),
+          { studentId } satisfies AddStudentToCourseRequest
+        );
+        updateCachedCourseStudentCount(courseId, students.length);
+        return students;
+      } catch {
+        const cache = loadCachedCourseStudents();
+        const currentStudents = cache[courseId] ?? [];
+        const nextStudents = currentStudents.some((item) => item.id === studentId)
+          ? currentStudents
+          : [...currentStudents, student];
+
+        cache[courseId] = nextStudents;
+        saveCachedCourseStudents(cache);
+        updateCachedCourseStudentCount(courseId, nextStudents.length);
+        return nextStudents;
+      }
+    },
     () => mockRepository.addStudentToCourse(courseId, studentId)
   );
 }
@@ -308,10 +859,24 @@ export function removeStudentFromCourse(
   studentId: string
 ): Promise<Student[]> {
   return withDataSource(
-    () =>
-      api.delete<CourseStudentsResponse>(
-        buildPath(COURSES.REMOVE_STUDENT, { courseId, studentId })
-      ),
+    async () => {
+      try {
+        const students = await api.delete<CourseStudentsResponse>(
+          buildPath(COURSES.REMOVE_STUDENT, { courseId, studentId })
+        );
+        updateCachedCourseStudentCount(courseId, students.length);
+        return students;
+      } catch {
+        const cache = loadCachedCourseStudents();
+        const nextStudents = (cache[courseId] ?? []).filter(
+          (student) => student.id !== studentId
+        );
+        cache[courseId] = nextStudents;
+        saveCachedCourseStudents(cache);
+        updateCachedCourseStudentCount(courseId, nextStudents.length);
+        return nextStudents;
+      }
+    },
     () => mockRepository.removeStudentFromCourse(courseId, studentId)
   );
 }
@@ -322,15 +887,109 @@ export function listSubmissions(input?: {
 }): Promise<SubmissionRecord[]> {
   return withDataSource(
     async () => {
-      if (!input?.courseId || !input.assignmentId) return [];
-      return api.get<SubmissionsListResponse>(
-        buildPath(SUBMISSIONS.LIST, {
-          courseId: input.courseId,
-          assignmentId: input.assignmentId,
-        })
+      const cachedSubmissions = loadCachedSubmissions().filter(
+        (submission) =>
+          !input?.assignmentId || submission.assignmentId === input.assignmentId
       );
+
+      if (!input?.courseId || !input.assignmentId) {
+        return cachedSubmissions;
+      }
+
+      try {
+        const apiSubmissions = await api.get<SubmissionsListResponse>(
+          buildPath(SUBMISSIONS.LIST, {
+            courseId: input.courseId,
+            assignmentId: input.assignmentId,
+          })
+        );
+
+        return mergeSubmissionRecordList([
+          ...cachedSubmissions,
+          ...apiSubmissions,
+        ]);
+      } catch (error) {
+        if (cachedSubmissions.length > 0) {
+          return cachedSubmissions;
+        }
+        throw error;
+      }
     },
     () => mockRepository.listSubmissions(input?.assignmentId)
+  );
+}
+
+export function gradeSubmission(
+  courseId: string,
+  assignmentId: string,
+  submissionId: string,
+  score: number,
+  feedback = ""
+): Promise<SubmissionRecord | null> {
+  return withDataSource(
+    () =>
+      api.put<SubmissionRecord>(
+        buildPath(SUBMISSIONS.GRADE, { courseId, assignmentId, submissionId }),
+        { score, feedback }
+      ),
+    () => mockRepository.gradeSubmission(assignmentId, submissionId, score)
+  );
+}
+
+export function requestPresignedUpload(
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; fileKey: string; publicUrl: string }> {
+  return withDataSource(
+    () =>
+      api.post<{ uploadUrl: string; fileKey: string; publicUrl: string }>(
+        FILES.PRESIGNED_UPLOAD,
+        { fileName, contentType }
+      ),
+    async () => ({
+      uploadUrl: "",
+      fileKey: `mock/${Date.now()}-${fileName}`,
+      publicUrl: "",
+    })
+  );
+}
+
+export function requestPresignedDownload(
+  fileKey: string
+): Promise<{ downloadUrl: string }> {
+  return withDataSource(
+    () => api.post<{ downloadUrl: string }>(FILES.PRESIGNED_DOWNLOAD, { fileKey }),
+    async () => ({ downloadUrl: fileKey })
+  );
+}
+
+export function createSubmission(
+  courseId: string,
+  assignmentId: string,
+  input: { text?: string; fileUrl?: string; fileName?: string }
+): Promise<SubmissionRecord> {
+  return withDataSource(
+    async () => {
+      let submission: SubmissionRecord;
+
+      if (courseId.startsWith("local-course-") || assignmentId.startsWith("local-assignment-")) {
+        submission = createCachedSubmission(assignmentId, input);
+      } else {
+        try {
+          submission = await api.post<SubmissionRecord>(
+            buildPath(SUBMISSIONS.CREATE, { courseId, assignmentId }),
+            input
+          );
+        } catch {
+          submission = createCachedSubmission(assignmentId, input);
+        }
+      }
+
+      cacheSubmission(submission);
+      applySubmissionToCachedAssignment(submission);
+      return submission;
+    },
+    () => mockRepository.createSubmission(assignmentId, input)
   );
 }
 
@@ -340,3 +999,56 @@ export function getCurrentUser(): Promise<CurrentUser> {
     () => mockRepository.getCurrentUser()
   );
 }
+
+export function getProfile(): Promise<CurrentUser> {
+  return withDataSource(
+    () => api.get<CurrentUser>(USERS.PROFILE),
+    () => mockRepository.getProfile()
+  );
+}
+
+export function updateProfile(input: Partial<CurrentUser>): Promise<CurrentUser> {
+  return withDataSource(
+    () => api.put<CurrentUser>(USERS.PROFILE, input),
+    () => mockRepository.updateProfile(input)
+  );
+}
+
+export function uploadAvatar(
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; fileKey: string; avatarUrl: string }> {
+  return withDataSource(
+    () =>
+      api.post<{ uploadUrl: string; fileKey: string; avatarUrl: string }>(
+        USERS.PROFILE_AVATAR,
+        { fileName, contentType }
+      ),
+    async () => {
+      const fileKey = `mock/avatar/${Date.now()}-${fileName}`;
+      return {
+        uploadUrl: "",
+        fileKey,
+        avatarUrl: fileKey,
+      };
+    }
+  );
+}
+
+export function getCourseAnalytics(courseId: string): Promise<any> {
+  return withDataSource(
+    () => api.get(buildPath(ANALYTICS.COURSE, { courseId })),
+    () => mockRepository.getCourseAnalytics(courseId)
+  );
+}
+
+export function getAssignmentAnalytics(
+  courseId: string,
+  assignmentId: string
+): Promise<any> {
+  return withDataSource(
+    () => api.get(buildPath(ANALYTICS.ASSIGNMENT, { courseId, assignmentId })),
+    () => mockRepository.getAssignmentAnalytics(courseId, assignmentId)
+  );
+}
+

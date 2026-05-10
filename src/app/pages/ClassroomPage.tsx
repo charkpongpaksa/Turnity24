@@ -31,6 +31,7 @@ import {
   addDiscussionComment,
   addStudentToCourse as addStudentToCourseRequest,
   createAnnouncement,
+  createAssignment,
   createDiscussion,
   deleteDiscussion as deleteDiscussionRequest,
   getCourseById,
@@ -101,6 +102,7 @@ export function ClassroomPage() {
   const [courseCode, setCourseCode] = useState("");
   const [courseInstructor, setCourseInstructor] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [activeTab, setActiveTab] = useState("announcements");
 
   const { data: course, loading: courseLoading } = useAsyncData(
     () => (courseId ? getCourseById(courseId) : Promise.resolve(null)),
@@ -226,22 +228,33 @@ export function ClassroomPage() {
     toast.success("Announcement created successfully!");
   };
 
-  const handleCreateAssignment = (data: AssignmentFormData) => {
-    const newAssignment = {
-      id: `ass-${Date.now()}`,
-      courseId: courseId ?? "",
-      title: data.title,
-      description: data.description,
-      points: data.points,
-      type: data.type,
-      dueDate: new Date(`${data.dueDate}T${data.dueTime}`).toISOString(),
-      latePolicy: data.latePolicy,
-      status: "not_submitted" as const,
-      attachments: data.attachments.map(att => ({ name: att.name, url: att.url ?? "" })),
-      submissions: [] as never[],
-    };
-    setLocalAssignments([...localAssignments, newAssignment]);
-    toast.success("Assignment created successfully!");
+  const handleCreateAssignment = async (data: AssignmentFormData) => {
+    if (!courseId) return;
+
+    try {
+      const newAssignment = await createAssignment(courseId, {
+        title: data.title,
+        description: data.description,
+        points: data.points,
+        type: data.type,
+        dueDate: new Date(`${data.dueDate}T${data.dueTime}`).toISOString(),
+        latePolicy: data.latePolicy,
+        status: "not_submitted",
+        attachments: data.attachments.map((att) => ({
+          name: att.name,
+          url: att.url ?? "",
+        })),
+      });
+      setLocalAssignments((current) => [
+        newAssignment,
+        ...current.filter((assignment) => assignment.id !== newAssignment.id),
+      ]);
+      setActiveTab("assignments");
+      toast.success("Assignment created successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to create assignment");
+      throw error;
+    }
   };
 
   const handleCreateDiscussion = async () => {
@@ -485,7 +498,7 @@ export function ClassroomPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="announcements" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 lg:w-auto">
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>

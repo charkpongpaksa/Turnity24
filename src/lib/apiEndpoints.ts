@@ -26,6 +26,7 @@ export const AUTH = {
 export const USERS = {
   PROFILE:        "/users/profile",            // GET / PUT  → Lambda: users-profile
   PROFILE_AVATAR: "/users/profile/avatar",     // POST       → Lambda: users-avatar (upload to S3)
+  STUDENTS:       "/users/students",           // GET       → Lambda: users-students
 } as const;
 
 // ─── Courses ──────────────────────────────────────────────────────
@@ -73,6 +74,9 @@ export const FILES = {
    * Response: { uploadUrl, fileKey, publicUrl }
    */
   PRESIGNED_UPLOAD: "/files/presigned-upload",   // POST   → Lambda: files-presigned-upload
+
+  /** Request a temporary URL to download a previously uploaded private file. */
+  PRESIGNED_DOWNLOAD: "/files/presigned-download", // POST → Lambda: files-presigned-download
 
   /** Delete a previously uploaded file */
   DELETE:           "/files/{fileKey}",           // DELETE → Lambda: files-delete
